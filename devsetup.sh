@@ -49,6 +49,15 @@ if [ -d "$TARGET_DIR/.devcontainer" ]; then
   fi
 fi
 
+# 1b. Warn if target directory is not empty
+if [ -n "$(ls -A "$TARGET_DIR" 2>/dev/null)" ]; then
+  echo "Warning: Target directory is not empty."
+  if ! prompt_confirm "Add devcontainer setup to this existing project?"; then
+    echo "Aborted."
+    exit 0
+  fi
+fi
+
 # 2. Project name
 BASENAME="$(basename "$TARGET_DIR")"
 DEFAULT_PROJECT="$(sanitize_name "$BASENAME")"
