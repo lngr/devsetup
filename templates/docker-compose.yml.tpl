@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     init: true
-    volumes:
+{{DOCKER_COMPOSE_EXTRAS}}    volumes:
       - ..:/workspaces/{{PROJECT_NAME}}
 {{GIT_VOLUME}}
       - ~/.gitconfig:/home/vscode/.gitconfig:cached

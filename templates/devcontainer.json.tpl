@@ -10,7 +10,7 @@
   "features": {
     "ghcr.io/devcontainers/features/git:1": {},
     "ghcr.io/devcontainers/features/node:1": {},
-    "ghcr.io/eitsupi/devcontainer-features/jq-likes:2": {}
+    "ghcr.io/eitsupi/devcontainer-features/jq-likes:2": {}{{DOCKER_FEATURE}}
   },
 
   "customizations": {

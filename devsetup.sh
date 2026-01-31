@@ -143,6 +143,18 @@ prompt_header "Timezone"
 prompt_input "Timezone" "Europe/Berlin"
 TIMEZONE="$REPLY"
 
+# 7. Docker-in-Docker
+prompt_header "Docker-in-Docker"
+prompt_select "Docker-Zugriff im Container?" \
+  "Kein Docker" \
+  "Docker-in-Docker (privileged)    – Eigener Docker-Daemon, braucht privileged mode" \
+  "Docker-in-Docker (Sysbox)        – Eigener Docker-Daemon, braucht Sysbox auf dem Host"
+case "$REPLY" in
+  "Kein"*)     DOCKER_MODE="none" ;;
+  *"privileged"*) DOCKER_MODE="privileged" ;;
+  *"Sysbox"*)  DOCKER_MODE="sysbox" ;;
+esac
+
 # ============================================================
 # Summary & Confirmation
 # ============================================================
@@ -153,6 +165,7 @@ echo "  Target:     $TARGET_DIR"
 echo "  Git mode:   $GIT_MODE"
 echo "  Base image: $BASE_IMAGE"
 echo "  Timezone:   $TIMEZONE"
+echo "  Docker:     $DOCKER_MODE"
 
 printf '  Services:   '
 if [ ${#SELECTED_SERVICES[@]} -eq 0 ]; then
@@ -183,6 +196,22 @@ mkdir -p "$OUTDIR/scripts"
 
 TPL="$DEVSETUP_DIR/templates"
 
+# --- Docker-in-Docker settings ---
+DOCKER_FEATURE=""
+DOCKER_COMPOSE_EXTRAS=""
+if [ "$DOCKER_MODE" != "none" ]; then
+  DOCKER_FEATURE=',
+    "ghcr.io/devcontainers/features/docker-in-docker:2": { "dockerDashComposeVersion": "v2" }'
+fi
+if [ "$DOCKER_MODE" = "privileged" ]; then
+  DOCKER_COMPOSE_EXTRAS='    privileged: true
+    cgroupns: private
+'
+elif [ "$DOCKER_MODE" = "sysbox" ]; then
+  DOCKER_COMPOSE_EXTRAS='    runtime: sysbox-runc
+'
+fi
+
 # --- Git volume line ---
 if [ "$GIT_MODE" = "readonly" ]; then
   GIT_VOLUME="      - ../.git:/workspaces/${PROJECT_NAME}/.git:ro"
@@ -208,7 +237,8 @@ fi
 # --- docker-compose.yml ---
 render_template "$TPL/docker-compose.yml.tpl" "$OUTDIR/docker-compose.yml" \
   "PROJECT_NAME=$PROJECT_NAME" \
-  "GIT_VOLUME=$GIT_VOLUME"
+  "GIT_VOLUME=$GIT_VOLUME" \
+  "DOCKER_COMPOSE_EXTRAS=$DOCKER_COMPOSE_EXTRAS"
 
 # --- Services ---
 COMPOSE_FILES='"docker-compose.yml"'
@@ -340,7 +370,8 @@ render_template "$TPL/devcontainer.json.tpl" "$OUTDIR/devcontainer.json" \
   "PROJECT_NAME=$PROJECT_NAME" \
   "COMPOSE_FILES=$COMPOSE_FILES" \
   "RUN_SERVICES=$RUN_SERVICES" \
-  "TIMEZONE=$TIMEZONE"
+  "TIMEZONE=$TIMEZONE" \
+  "DOCKER_FEATURE=$DOCKER_FEATURE"
 
 # --- init-worktree.sh ---
 render_template "$TPL/init-worktree.sh.tpl" "$OUTDIR/init-worktree.sh" \
@@ -390,6 +421,7 @@ EXTRA_PACKAGES=${EXTRA_PACKAGES}
 TIMEZONE=${TIMEZONE}
 SELECTED_SERVICES=${SELECTED_SERVICES[*]:-}
 POSTGRES_DBS=${POSTGRES_DBS}
+DOCKER_MODE=${DOCKER_MODE}
 EOF
 
 echo
