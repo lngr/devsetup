@@ -205,7 +205,6 @@ if [ "$DOCKER_MODE" != "none" ]; then
 fi
 if [ "$DOCKER_MODE" = "privileged" ]; then
   DOCKER_COMPOSE_EXTRAS='    privileged: true
-    cgroupns: private
 '
 elif [ "$DOCKER_MODE" = "sysbox" ]; then
   DOCKER_COMPOSE_EXTRAS='    runtime: sysbox-runc

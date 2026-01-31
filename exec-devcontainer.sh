@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-PROJECT_NAME="{{PROJECT_NAME}}"
-GIT_MODE="{{GIT_MODE}}"
+PROJECT_NAME="devsetup"
+GIT_MODE="writable"
 
 # 1. Install devcontainer CLI if missing
 if ! command -v devcontainer &> /dev/null; then

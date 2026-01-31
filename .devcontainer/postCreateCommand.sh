@@ -32,11 +32,8 @@ maybe_add_nvm_node_to_path() {
 
 maybe_add_nvm_node_to_path || true
 
-: "${TZ:={{TIMEZONE}}}"
+: "${TZ:=Europe/Berlin}"
 export TZ
-
-# Ensure /workspaces is writable for git worktrees
-sudo chown "$(id -u):$(id -g)" /workspaces 2>/dev/null || true
 
 # Setup timezone
 if [ -f "/usr/share/zoneinfo/$TZ" ]; then
