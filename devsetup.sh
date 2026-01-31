@@ -4,7 +4,7 @@ set -euo pipefail
 # devsetup – Dev Container Bootstrapping Tool
 # Scaffolds a complete .devcontainer setup in any project directory.
 
-DEVSETUP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+DEVSETUP_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
 # shellcheck source=lib/prompts.sh
 source "$DEVSETUP_DIR/lib/prompts.sh"
