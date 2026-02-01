@@ -1,6 +1,6 @@
 # devsetup
 
-Interaktives CLI-Tool, das in einem beliebigen Projektverzeichnis ein komplettes Dev-Container-Setup scaffolded. Nach dem Scaffolding ist das Setup self-contained -- keine Abhaengigkeit zum Tool.
+Interactive CLI tool that scaffolds a complete dev container setup in any project directory. After scaffolding, the setup is self-contained -- no dependency on the tool.
 
 ## Installation
 
@@ -12,120 +12,120 @@ Interaktives CLI-Tool, das in einem beliebigen Projektverzeichnis ein komplettes
 ./devsetup.sh --install
 ```
 
-Beide Varianten erstellen einen Symlink `~/.local/bin/devsetup` -> `devsetup.sh`.
-Sicherstellen, dass `~/.local/bin` im `PATH` liegt:
+Both options create a symlink `~/.local/bin/devsetup` -> `devsetup.sh`.
+Make sure `~/.local/bin` is in your `PATH`:
 
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-## Verwendung
+## Usage
 
 ```bash
-# Im Projektverzeichnis ausfuehren
-cd ~/mein-projekt
+# Run in the project directory
+cd ~/my-project
 devsetup
 
-# Oder mit explizitem Zielverzeichnis
-devsetup --target ~/mein-projekt
+# Or with an explicit target directory
+devsetup --target ~/my-project
 ```
 
-Das Tool fuehrt einen interaktiven Prompt-Flow durch:
+The tool guides you through an interactive prompt flow:
 
-1. **Projektname** -- Default: Verzeichnisname (sanitized fuer Docker Compose)
-2. **Git-Modus**
-   - *Read-only* -- `.git` wird als `:ro` gemountet, Worktrees auf dem Host, pro Worktree ein eigener Container-Stack
-   - *Writable* -- Voller Git-Zugriff im Container, ein Container fuer alles
-3. **Base-Image** -- Ubuntu Noble, Node.js 22, .NET 8/9, Python 3, Go, oder Custom
-4. **Services** -- Mehrfachauswahl aus PostgreSQL+PgAdmin, Redis, RabbitMQ, MySQL+phpMyAdmin, MinIO, MongoDB
+1. **Project name** -- Default: directory name (sanitized for Docker Compose)
+2. **Git mode**
+   - *Read-only* -- `.git` is mounted as `:ro`, worktrees on the host, each worktree gets its own container stack
+   - *Writable* -- Full git access inside the container, one container for everything
+3. **Base image** -- Ubuntu Noble, Node.js 22, .NET 8/9, Python 3, Go, or Custom
+4. **Services** -- Multi-select from PostgreSQL+PgAdmin, Redis, RabbitMQ, MySQL+phpMyAdmin, MinIO, MongoDB
 5. **Timezone** -- Default: `Europe/Berlin`
-6. **Zusammenfassung** -- Bestaetigung vor der Generierung
+6. **Summary** -- Confirmation before generation
 
-## Generierte Dateien
+## Generated Files
 
 ```
-projekt/
+project/
 ├── .devcontainer/
 │   ├── devcontainer.json
 │   ├── docker-compose.yml
-│   ├── docker-compose.services.yml    # nur bei ausgewaehlten Services
+│   ├── docker-compose.services.yml    # only when services are selected
 │   ├── Dockerfile
 │   ├── .env
-│   ├── devsetup.conf                  # persistierte Config
+│   ├── devsetup.conf                  # persisted config
 │   ├── init-worktree.sh
 │   ├── postCreateCommand.sh
 │   ├── postStartCommand.sh
 │   ├── scripts/
 │   │   ├── install-agents.sh
 │   │   └── update-agents.sh
-│   └── postgres-init/                 # nur bei PostgreSQL
+│   └── postgres-init/                 # only with PostgreSQL
 │       └── 01-create-databases.sh
-└── exec-devcontainer.sh               # Entry-Script
+└── exec-devcontainer.sh               # entry script
 ```
 
-## Container starten
+## Starting the Container
 
 ```bash
-cd ~/mein-projekt
+cd ~/my-project
 ./exec-devcontainer.sh
 ```
 
-Das Script:
-- Installiert `@devcontainers/cli` falls noetig
-- Fuehrt `init-worktree.sh` aus (setzt `COMPOSE_PROJECT_NAME`)
-- Konfiguriert X11-Forwarding (Linux nativ, TCP-Fallback fuer IntelliJ)
-- Startet den Container via `devcontainer up`
-- Synct `~/.tmux.conf` in den Container
-- Oeffnet eine Shell als `vscode`-User
+The script:
+- Installs `@devcontainers/cli` if needed
+- Runs `init-worktree.sh` (sets `COMPOSE_PROJECT_NAME`)
+- Configures X11 forwarding (native on Linux, TCP fallback for IntelliJ)
+- Starts the container via `devcontainer up`
+- Syncs `~/.tmux.conf` into the container
+- Opens a shell as the `vscode` user
 
-Alternativ mit VS Code:
+Alternatively with VS Code:
 ```
 Ctrl+Shift+P -> "Dev Containers: Reopen in Container"
 ```
 
 ## Coding Agents
 
-Folgende Agents werden automatisch installiert (`postCreateCommand.sh`) und bei jedem Start aktualisiert (`postStartCommand.sh`):
+The following agents are automatically installed (`postCreateCommand.sh`) and updated on every start (`postStartCommand.sh`):
 
-| Agent | Befehl im Container |
+| Agent | Command in Container |
 |---|---|
-| Claude Code | `claude` (mit `--dangerously-skip-permissions --ide`) |
-| OpenAI Codex | `codex` (mit `--dangerously-bypass-approvals-and-sandbox`) |
+| Claude Code | `claude` (with `--dangerously-skip-permissions --ide`) |
+| OpenAI Codex | `codex` (with `--dangerously-bypass-approvals-and-sandbox`) |
 | OpenCode | `opencode` |
 
-Die Aliases sind in `~/.bashrc` und `~/.zshrc` hinterlegt. API-Keys sind nicht noetig -- die Agents nutzen OAuth-Login beim ersten Aufruf.
+The aliases are configured in `~/.bashrc` and `~/.zshrc`. No API keys required -- the agents use OAuth login on first invocation.
 
-## Git-Modi im Detail
+## Git Modes in Detail
 
-### Read-only (empfohlen fuer Worktree-Workflows)
+### Read-only (recommended for worktree workflows)
 
 ```yaml
 volumes:
-  - ..:/workspaces/projekt
-  - ../.git:/workspaces/projekt/.git:ro
+  - ..:/workspaces/project
+  - ../.git:/workspaces/project/.git:ro
 ```
 
-- Agents koennen `git log`, `git diff`, `git blame` lesen
-- Kein Commit/Push aus dem Container
-- Worktrees auf dem Host erstellen: `git worktree add ../feature-x`
-- Jeder Worktree bekommt eigenen Container-Stack mit eigenen Volumes
+- Agents can read `git log`, `git diff`, `git blame`
+- No commit/push from inside the container
+- Create worktrees on the host: `git worktree add ../feature-x`
+- Each worktree gets its own container stack with separate volumes
 
 ### Writable
 
 ```yaml
 volumes:
-  - ..:/workspaces/projekt    # inkl. .git rw
+  - ..:/workspaces/project    # incl. .git rw
 ```
 
-- Voller Git-Zugriff (commit, push, branch, worktree)
-- Ein Container fuer das gesamte Projekt
-- `.gitconfig` vom Host gemountet
+- Full git access (commit, push, branch, worktree)
+- One container for the entire project
+- `.gitconfig` mounted from the host
 
 ## Services
 
-Ausgewaehlte Services werden in `docker-compose.services.yml` konfiguriert. Im Container sind sie ueber `socat`-Port-Forwards auf `localhost` erreichbar:
+Selected services are configured in `docker-compose.services.yml`. Inside the container, they are accessible on `localhost` via `socat` port forwards:
 
-| Service | Port im Container |
+| Service | Port in Container |
 |---|---|
 | PostgreSQL | 5432 |
 | Redis | 6379 |
@@ -133,21 +133,21 @@ Ausgewaehlte Services werden in `docker-compose.services.yml` konfiguriert. Im C
 | MySQL | 3306 |
 | MongoDB | 27017 |
 
-PgAdmin, phpMyAdmin und MinIO Console sind ueber ihre jeweiligen Ports erreichbar (5050, 80, 9001).
+PgAdmin, phpMyAdmin, and MinIO Console are accessible on their respective ports (5050, 80, 9001).
 
 ## X11 / Clipboard
 
-Der Container hat X11-Support fuer Clipboard-Zugriff (`xclip`, `xsel`). Auf Linux wird der X11-Socket direkt gemountet. Fuer IntelliJ-Container ohne Socket-Mount wird automatisch ein TCP-Forward via `socat` eingerichtet.
+The container has X11 support for clipboard access (`xclip`, `xsel`). On Linux, the X11 socket is mounted directly. For IntelliJ containers without socket mount, a TCP forward via `socat` is set up automatically.
 
-## Projektstruktur (Tool)
+## Project Structure (Tool)
 
 ```
 devsetup/
-├── devsetup.sh              # Hauptskript
-├── install.sh               # Symlink-Erstellung
+├── devsetup.sh              # main script
+├── install.sh               # symlink creation
 ├── lib/
-│   ├── prompts.sh           # Interaktive Prompts
-│   └── templates.sh         # {{VAR}}-Template-Engine
+│   ├── prompts.sh           # interactive prompts
+│   └── templates.sh         # {{VAR}} template engine
 └── templates/
     ├── devcontainer.json.tpl
     ├── docker-compose.yml.tpl
