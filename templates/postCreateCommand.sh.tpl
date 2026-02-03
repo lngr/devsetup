@@ -56,7 +56,7 @@ bash .devcontainer/scripts/install-agents.sh
 ALIASES_FILE="$HOME/.devcontainer_aliases"
 cat >"$ALIASES_FILE" <<'ALIASES'
 export PATH="$HOME/.local/bin:$PATH"
-alias claude='command claude --dangerously-skip-permissions --ide'
+alias claude='command claude --dangerously-skip-permissions --ide --chrome'
 alias codex='command codex --dangerously-bypass-approvals-and-sandbox'
 ALIASES
 

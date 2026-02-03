@@ -89,7 +89,7 @@ The following agents are automatically installed (`postCreateCommand.sh`) and up
 
 | Agent | Command in Container |
 |---|---|
-| Claude Code | `claude` (with `--dangerously-skip-permissions --ide`) |
+| Claude Code | `claude` (with `--dangerously-skip-permissions --ide --chrome`) |
 | OpenAI Codex | `codex` (with `--dangerously-bypass-approvals-and-sandbox`) |
 | OpenCode | `opencode` |
 
