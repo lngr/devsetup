@@ -17,14 +17,15 @@ teardown() {
 # Pipe answers for a minimal devsetup run (empty target dir):
 #   1. Project name → testproj
 #   2. Git mode → 1 (readonly)
-#   3. Base image → 1 (Ubuntu Noble)
-#   4. Services → (empty = none)
-#   5. Timezone → Europe/Berlin (default)
-#   6. Docker mode → 1 (none)
-#   7. Confirm → y
+#   3. Workspace mount → 1 (project only)
+#   4. Base image → 1 (Ubuntu Noble)
+#   5. Services → (empty = none)
+#   6. Timezone → Europe/Berlin (default)
+#   7. Docker mode → 1 (none)
+#   8. Confirm → y
 run_devsetup_minimal() {
   local target="${1:-$TEST_TMP/project}"
-  printf 'testproj\n1\n1\n\nEurope/Berlin\n1\ny\n' | \
+  printf 'testproj\n1\n1\n1\n\nEurope/Berlin\n1\ny\n' | \
     bash "$REPO_ROOT/devsetup.sh" --target "$target"
 }
 
@@ -190,7 +191,7 @@ run_devsetup_minimal() {
   first_size=$(wc -c < "$TEST_TMP/project/.gitignore")
 
   # Run again (will ask overwrite + add to existing)
-  printf 'y\ny\ntestproj\n1\n1\n\nEurope/Berlin\n1\ny\n' | \
+  printf 'y\ny\ntestproj\n1\n1\n1\n\nEurope/Berlin\n1\ny\n' | \
     bash "$REPO_ROOT/devsetup.sh" --target "$TEST_TMP/project"
 
   local second_size

@@ -2,7 +2,7 @@
   "name": "{{PROJECT_NAME}}",
   "dockerComposeFile": {{COMPOSE_FILES}},
   "service": "dev",
-  "workspaceFolder": "/workspaces/{{PROJECT_NAME}}",
+  "workspaceFolder": "{{WORKSPACE_FOLDER}}",
   "runServices": {{RUN_SERVICES}},
 
   "initializeCommand": "bash ${localWorkspaceFolder}/.devcontainer/init-worktree.sh",

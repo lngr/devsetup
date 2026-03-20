@@ -7,7 +7,7 @@ services:
       dockerfile: Dockerfile
     init: true
 {{DOCKER_COMPOSE_EXTRAS}}    volumes:
-      - ..:/workspaces/{{PROJECT_NAME}}
+{{WORKSPACE_VOLUME}}
 {{GIT_VOLUME}}
       - ~/.gitconfig:/home/vscode/.gitconfig:cached
     command: sleep infinity

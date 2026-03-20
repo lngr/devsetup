@@ -33,6 +33,7 @@ if [ -f "$PERSONAL_CONF" ]; then
 fi
 
 # Defaults
+: "${WORKSPACE_MOUNT:=project}"
 : "${INSTALL_AGENTS:=true}"
 : "${SYNC_TMUX:=true}"
 : "${SYNC_CLAUDE_CONFIG:=true}"
@@ -358,6 +359,13 @@ fi
 # 7. Exec into container
 # ============================================================
 
+# Determine container workspace path
+if [ "$WORKSPACE_MOUNT" = "parent" ]; then
+  CONTAINER_WORKDIR="/workspaces/$(basename "$(pwd)")"
+else
+  CONTAINER_WORKDIR="/workspaces/${PROJECT_NAME}"
+fi
+
 if [ $# -eq 0 ]; then
   set -- bash
 fi
@@ -447,9 +455,9 @@ if [ "$USE_DOCKER_EXEC" = true ]; then
   [ -n "${ANTHROPIC_API_KEY:-}" ] && DOCKER_ENV_ARGS+=(-e "ANTHROPIC_API_KEY=$ANTHROPIC_API_KEY")
 
   if [ -t 0 ]; then
-    exec docker exec -it "${DOCKER_ENV_ARGS[@]}" -u vscode -w "/workspaces/${PROJECT_NAME}" "$CONTAINER_ID" "$@"
+    exec docker exec -it "${DOCKER_ENV_ARGS[@]}" -u vscode -w "$CONTAINER_WORKDIR" "$CONTAINER_ID" "$@"
   else
-    exec docker exec -i "${DOCKER_ENV_ARGS[@]}" -u vscode -w "/workspaces/${PROJECT_NAME}" "$CONTAINER_ID" "$@"
+    exec docker exec -i "${DOCKER_ENV_ARGS[@]}" -u vscode -w "$CONTAINER_WORKDIR" "$CONTAINER_ID" "$@"
   fi
 else
   exec devcontainer exec --workspace-folder . "$@"
