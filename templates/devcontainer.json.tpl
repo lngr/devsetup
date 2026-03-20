@@ -15,17 +15,11 @@
 
   "customizations": {
     "vscode": {
-      "extensions": [
-        "anthropic.claude-code"
-      ]
+      "extensions": []
     }
   },
   "containerEnv": {
     "TZ": "{{TIMEZONE}}"
-  },
-  "remoteEnv": {
-    "DISPLAY": "${localEnv:DISPLAY}",
-    "XAUTHORITY": "/home/vscode/.Xauthority"
   },
   "postCreateCommand": "bash -lc 'bash .devcontainer/postCreateCommand.sh'",
   "postStartCommand": "bash -lc 'bash .devcontainer/postStartCommand.sh'",

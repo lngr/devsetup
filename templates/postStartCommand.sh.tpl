@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # postStartCommand – runs on every devcontainer start.
-# Updates coding agents and sets up localhost port forwards.
+# Sets up localhost port forwards and calls personal overlay hook.
 
 if [ -f /etc/profile ]; then
   # shellcheck disable=SC1091
@@ -10,9 +10,6 @@ if [ -f /etc/profile ]; then
 fi
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
 export PATH="$HOME/.local/bin:$PATH"
-
-# Update coding agents in background
-bash .devcontainer/scripts/update-agents.sh &
 
 # Port forward helpers for services running in sibling containers
 if ! command -v socat >/dev/null 2>&1; then
@@ -61,3 +58,9 @@ start_forward() {
 }
 
 # PORT_FORWARDS_MARKER
+
+# --- Personal overlay hook ---
+if [ -f ".devcontainer/postStartCommand.local.sh" ]; then
+  echo "=== Running personal postStart hook ==="
+  bash .devcontainer/postStartCommand.local.sh
+fi
