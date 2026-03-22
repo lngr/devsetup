@@ -1,6 +1,6 @@
 {
   "name": "devsetup",
-  "dockerComposeFile": "docker-compose.yml",
+  "dockerComposeFile": ["docker-compose.yml", "docker-compose.local.yml"],
   "service": "dev",
   "workspaceFolder": "/workspaces/devsetup",
   "runServices": ["dev"],

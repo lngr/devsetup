@@ -55,7 +55,7 @@ for pkg in "${PACKAGES[@]}"; do
     continue
   fi
   echo "Installing npm tool: $pkg (prefix: $PREFIX)"
-  NPM_CONFIG_PREFIX="$PREFIX" "$NODE_BIN" "$NPM_BIN" i -g "$pkg"
+  NPM_CONFIG_PREFIX="$PREFIX" "$NODE_BIN" "$NPM_BIN" i -g --progress=false --loglevel=warn "$pkg"
 done
 
 # Install Claude Code CLI

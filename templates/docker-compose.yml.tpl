@@ -11,11 +11,6 @@ services:
 {{GIT_VOLUME}}
       - ~/.gitconfig:/home/vscode/.gitconfig:cached
     command: sleep infinity
-    env_file:
-      - path: ../.env
-        required: false
-      - path: ../.env.local
-        required: false
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:

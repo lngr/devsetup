@@ -19,3 +19,5 @@ RUN apt-get update && \
         jq \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+RUN mkdir -p /home/vscode/.claude && chown vscode:vscode /home/vscode/.claude

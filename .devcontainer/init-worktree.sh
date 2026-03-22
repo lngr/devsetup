@@ -37,3 +37,14 @@ XAUTHORITY_PATH=${XAUTHORITY_PATH}
 EOF
 
 echo "Devcontainer initialized: COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}"
+
+# Ensure docker-compose.local.yml stub exists for personal overlays
+LOCAL_COMPOSE="$SCRIPT_DIR/docker-compose.local.yml"
+if [ ! -f "$LOCAL_COMPOSE" ]; then
+  cat > "$LOCAL_COMPOSE" <<'YAMLEOF'
+# Personal docker-compose overrides (generated, gitignored).
+# Overwritten by exec-devcontainer with personal settings.
+services: {}
+YAMLEOF
+  echo "Created docker-compose.local.yml stub"
+fi
