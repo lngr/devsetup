@@ -16,11 +16,14 @@ SANITIZED_NAME="$(echo "$WORKTREE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^
 # Build unique compose project name
 COMPOSE_PROJECT_NAME="devcontainer-{{PROJECT_NAME}}-${SANITIZED_NAME}"
 
-# Write .env to .devcontainer directory
+# Update COMPOSE_PROJECT_NAME in .env (preserve other variables)
 ENV_FILE="$SCRIPT_DIR/.env"
-cat > "$ENV_FILE" <<EOF
-COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}
-EOF
+if [ -f "$ENV_FILE" ]; then
+  sed -i '/^COMPOSE_PROJECT_NAME=/d' "$ENV_FILE"
+else
+  touch "$ENV_FILE"
+fi
+echo "COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}" >> "$ENV_FILE"
 
 echo "Devcontainer initialized: COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}"
 

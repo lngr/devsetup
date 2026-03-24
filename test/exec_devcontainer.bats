@@ -261,3 +261,37 @@ UPDATE
   run grep "  dev:" "$TEST_TMP/project/.devcontainer/docker-compose.local.yml"
   assert_success
 }
+
+# --- --remote-env for X11 in exec-devcontainer.sh ---
+
+@test "exec-devcontainer: REMOTE_ENV_ARGS is built with DISPLAY when X11 enabled" {
+  run grep 'REMOTE_ENV_ARGS.*(--remote-env "DISPLAY=' "$REPO_ROOT/exec-devcontainer.sh"
+  assert_success
+}
+
+@test "exec-devcontainer: REMOTE_ENV_ARGS includes XAUTHORITY when X11 enabled" {
+  run grep 'REMOTE_ENV_ARGS.*(--remote-env "XAUTHORITY=' "$REPO_ROOT/exec-devcontainer.sh"
+  assert_success
+}
+
+@test "exec-devcontainer: REMOTE_ENV_ARGS includes QT_X11_NO_MITSHM when X11 enabled" {
+  run grep 'REMOTE_ENV_ARGS.*(--remote-env "QT_X11_NO_MITSHM=' "$REPO_ROOT/exec-devcontainer.sh"
+  assert_success
+}
+
+@test "exec-devcontainer: devcontainer up passes REMOTE_ENV_ARGS" {
+  run grep 'devcontainer up.*REMOTE_ENV_ARGS' "$REPO_ROOT/exec-devcontainer.sh"
+  assert_success
+}
+
+@test "exec-devcontainer: all devcontainer exec calls pass REMOTE_ENV_ARGS" {
+  local total_exec remote_env_exec
+  total_exec=$(grep -c 'devcontainer exec --workspace-folder' "$REPO_ROOT/exec-devcontainer.sh")
+  remote_env_exec=$(grep -c 'devcontainer exec --workspace-folder.*REMOTE_ENV_ARGS' "$REPO_ROOT/exec-devcontainer.sh")
+  [ "$total_exec" -eq "$remote_env_exec" ]
+}
+
+@test "exec-devcontainer: no --override-config in devcontainer commands" {
+  run grep 'devcontainer.*--override-config' "$REPO_ROOT/exec-devcontainer.sh"
+  assert_failure
+}
