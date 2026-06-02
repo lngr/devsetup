@@ -21,15 +21,68 @@ if [ "${1:-}" = "--install" ]; then
   exit 0
 fi
 
+# --- Toggle Claude-config sharing for the current project (user-local) ---
+# Writes the per-project .devcontainer/devsetup.local.conf and ensures the
+# gitignore entry exists. Does not touch any committed files.
+if [ "${1:-}" = "--enable-claude-share" ] || [ "${1:-}" = "--disable-claude-share" ]; then
+  ACTION="$1"
+  TARGET_DIR="${2:-$PWD}"
+  TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
+  LOCAL_CONF="$TARGET_DIR/.devcontainer/devsetup.local.conf"
+
+  if [ ! -d "$TARGET_DIR/.devcontainer" ]; then
+    echo "ERROR: $TARGET_DIR/.devcontainer/ not found. Run 'devsetup' first." >&2
+    exit 1
+  fi
+
+  case "$ACTION" in
+    --enable-claude-share)  NEW_VALUE="share" ;;
+    --disable-claude-share) NEW_VALUE="none" ;;
+  esac
+
+  touch "$LOCAL_CONF"
+  if grep -q '^CLAUDE_CONFIG_MODE=' "$LOCAL_CONF"; then
+    sed -i "s|^CLAUDE_CONFIG_MODE=.*|CLAUDE_CONFIG_MODE=${NEW_VALUE}|" "$LOCAL_CONF"
+  else
+    {
+      echo "# Per-project devsetup overrides (gitignored, user-local)."
+      echo "CLAUDE_CONFIG_MODE=${NEW_VALUE}"
+    } >> "$LOCAL_CONF"
+  fi
+
+  GI="$TARGET_DIR/.gitignore"
+  GI_ENTRY=".devcontainer/devsetup.local.conf"
+  if [ -f "$GI" ]; then
+    grep -qxF "$GI_ENTRY" "$GI" || printf '%s\n' "$GI_ENTRY" >> "$GI"
+  else
+    printf '%s\n' "$GI_ENTRY" > "$GI"
+  fi
+
+  echo "CLAUDE_CONFIG_MODE=${NEW_VALUE} → $LOCAL_CONF"
+  exit 0
+fi
+
 # --- Parse arguments ---
 TARGET_DIR="$PWD"
 while [ $# -gt 0 ]; do
   case "$1" in
     --target) TARGET_DIR="$2"; shift 2 ;;
     --help|-h)
-      echo "Usage: devsetup [--target <dir>] [--install]"
-      echo "  Scaffolds a .devcontainer setup in the target directory."
-      echo "  Use 'exec-devcontainer' to start containers with personal overlays."
+      cat <<HELP
+Usage: devsetup [--target <dir>] [--install]
+       devsetup --enable-claude-share  [<dir>]
+       devsetup --disable-claude-share [<dir>]
+
+  Scaffolds a .devcontainer setup in the target directory.
+  Use 'exec-devcontainer' to start containers with personal overlays.
+
+  New setups default to CLAUDE_CONFIG_MODE=share, which bind-mounts the full
+  \$HOME/.claude and \$HOME/.claude.json live (read-write) into the container,
+  so memories, skills, settings and token refresh are shared with the host.
+  --disable-claude-share [<dir>] opts a project out, --enable-claude-share [<dir>]
+  back in. Both write the user-local, gitignored .devcontainer/devsetup.local.conf
+  and never touch committed files.
+HELP
       exit 0 ;;
     *) echo "Unknown option: $1"; exit 1 ;;
   esac
@@ -86,6 +139,21 @@ case "$REPLY" in
   "Nur Projekt"*) WORKSPACE_MOUNT="project" ;;
   *)              WORKSPACE_MOUNT="parent" ;;
 esac
+
+# 3c. Claude config sharing (user-local, gitignored override; default: share)
+# Bind-mounts the full $HOME/.claude + $HOME/.claude.json live into the container.
+prompt_header "Claude-Config teilen"
+# Preserve a prior opt-out when re-running devsetup on an existing project.
+CLAUDE_SHARE_DEFAULT="y"
+EXISTING_LOCAL_CONF="$TARGET_DIR/.devcontainer/devsetup.local.conf"
+if [ -f "$EXISTING_LOCAL_CONF" ] && grep -q '^CLAUDE_CONFIG_MODE=none' "$EXISTING_LOCAL_CONF"; then
+  CLAUDE_SHARE_DEFAULT="n"
+fi
+if prompt_confirm "Claude-Config (~/.claude) live mit dem Container teilen?" "$CLAUDE_SHARE_DEFAULT"; then
+  CLAUDE_CONFIG_MODE="share"
+else
+  CLAUDE_CONFIG_MODE="none"
+fi
 
 # 4. Base image
 prompt_header "Base Image"
@@ -474,6 +542,7 @@ OVERLAY_ENTRIES=(
   ".devcontainer/postStartCommand.local.sh"
   ".devcontainer/scripts/"
   ".devcontainer/devsetup.conf"
+  ".devcontainer/devsetup.local.conf"
 )
 
 if [ -f "$GITIGNORE_FILE" ]; then
@@ -503,6 +572,18 @@ SELECTED_SERVICES="${SELECTED_SERVICES[*]:-}"
 POSTGRES_DBS="${POSTGRES_DBS}"
 DOCKER_MODE="${DOCKER_MODE}"
 EOF
+
+# --- devsetup.local.conf (user-local, gitignored: Claude config sharing) ---
+LOCAL_CONF_OUT="$OUTDIR/devsetup.local.conf"
+touch "$LOCAL_CONF_OUT"
+if grep -q '^CLAUDE_CONFIG_MODE=' "$LOCAL_CONF_OUT"; then
+  sed -i "s|^CLAUDE_CONFIG_MODE=.*|CLAUDE_CONFIG_MODE=${CLAUDE_CONFIG_MODE}|" "$LOCAL_CONF_OUT"
+else
+  {
+    echo "# Per-project devsetup overrides (gitignored, user-local)."
+    echo "CLAUDE_CONFIG_MODE=${CLAUDE_CONFIG_MODE}"
+  } >> "$LOCAL_CONF_OUT"
+fi
 
 echo
 echo "============================================"

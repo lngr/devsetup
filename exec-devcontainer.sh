@@ -32,15 +32,30 @@ if [ -f "$PERSONAL_CONF" ]; then
   source "$PERSONAL_CONF"
 fi
 
+# Per-project local overrides (gitignored)
+LOCAL_CONF=".devcontainer/devsetup.local.conf"
+if [ -f "$LOCAL_CONF" ]; then
+  # shellcheck source=/dev/null
+  source "$LOCAL_CONF"
+fi
+
 # Defaults
 : "${WORKSPACE_MOUNT:=project}"
 : "${INSTALL_AGENTS:=true}"
 : "${SYNC_TMUX:=true}"
-: "${SYNC_CLAUDE_CONFIG:=true}"
+: "${CLAUDE_CONFIG_MODE:=none}"
 : "${X11_FORWARDING:=auto}"
-: "${CLAUDE_FLAGS:=--dangerously-skip-permissions --ide --chrome}"
+: "${CLAUDE_FLAGS:=--dangerously-skip-permissions}"
 : "${CODEX_FLAGS:=--dangerously-bypass-approvals-and-sandbox}"
 : "${SERVICE_NAME:=dev}"
+
+case "$CLAUDE_CONFIG_MODE" in
+  share|none) ;;
+  *)
+    echo "ERROR: invalid CLAUDE_CONFIG_MODE='$CLAUDE_CONFIG_MODE' (expected 'share' or 'none')." >&2
+    exit 1
+    ;;
+esac
 
 # ============================================================
 # 1. Generate personal overlay files
@@ -65,19 +80,21 @@ elif [ "$X11_FORWARDING" = "auto" ] && [[ "${OSTYPE:-}" == linux-gnu* ]]; then
 fi
 
 # --- docker-compose.local.yml ---
-# Collect Claude config bind mounts (read-only)
+# Claude config: full read-write bind-mount when sharing is enabled
 CLAUDE_MOUNTS=""
-if [ "$SYNC_CLAUDE_CONFIG" = true ] && [ -d "$HOME/.claude" ]; then
-  CLAUDE_DIR="$HOME/.claude"
-  for item in commands plugins; do
-    if [ -e "$CLAUDE_DIR/$item" ]; then
-      CLAUDE_MOUNTS="${CLAUDE_MOUNTS}      - type: bind
-        source: ${CLAUDE_DIR}/${item}
-        target: /home/vscode/.claude/${item}
-        read_only: true
+if [ "$CLAUDE_CONFIG_MODE" = "share" ]; then
+  if [ -d "$HOME/.claude" ]; then
+    CLAUDE_MOUNTS="${CLAUDE_MOUNTS}      - type: bind
+        source: ${HOME}/.claude
+        target: /home/vscode/.claude
 "
-    fi
-  done
+  fi
+  if [ -f "$HOME/.claude.json" ]; then
+    CLAUDE_MOUNTS="${CLAUDE_MOUNTS}      - type: bind
+        source: ${HOME}/.claude.json
+        target: /home/vscode/.claude.json
+"
+  fi
 fi
 
 if [ "$ENABLE_X11" = true ]; then
@@ -122,6 +139,14 @@ if [ "$ENABLE_X11" = true ]; then
   REMOTE_ENV_ARGS+=(--remote-env "QT_X11_NO_MITSHM=1")
 fi
 
+# Propagate NuGet feed credentials from host.
+if [ -n "${NuGetPackageSourceCredentials_median:-}" ]; then
+  REMOTE_ENV_ARGS+=(--remote-env "NuGetPackageSourceCredentials_median=${NuGetPackageSourceCredentials_median}")
+fi
+if [ -n "${NuGetPackageSourceCredentials_mestus:-}" ]; then
+  REMOTE_ENV_ARGS+=(--remote-env "NuGetPackageSourceCredentials_mestus=${NuGetPackageSourceCredentials_mestus}")
+fi
+
 # --- postCreateCommand.local.sh ---
 {
   cat <<'HEADER'
@@ -155,12 +180,6 @@ HEADER
 
   if [ "$INSTALL_AGENTS" = true ]; then
     cat <<'AGENTS'
-
-# Fix ownership of ~/.claude/ if bind-mounts created it as root
-if [ -d "$HOME/.claude" ] && [ "$(stat -c '%U' "$HOME/.claude" 2>/dev/null)" != "$(whoami)" ]; then
-  echo "Fixing ~/.claude/ ownership..."
-  sudo chown "$(id -u):$(id -g)" "$HOME/.claude"
-fi
 
 # Verify critical tools
 command -v curl >/dev/null 2>&1 || { echo "ERROR: curl not found" >&2; exit 1; }
@@ -388,44 +407,31 @@ if [ "$SYNC_TMUX" = true ] && [ -f "$HOME/.tmux.conf" ]; then
   ' || true
 fi
 
-# --- Sync Claude config ---
-if [ "$SYNC_CLAUDE_CONFIG" = true ] && [ -d "$HOME/.claude" ]; then
-  # Fix ownership of ~/.claude/ if bind-mounts created it as root
-  if [ "$USE_DOCKER_EXEC" = true ]; then
-    docker exec -u root "$CONTAINER_ID" bash -c 'mkdir -p /home/vscode/.claude && chown vscode:vscode /home/vscode/.claude' || true
-  else
-    devcontainer exec --workspace-folder . "${REMOTE_ENV_ARGS[@]}" bash -c 'sudo mkdir -p /home/vscode/.claude && sudo chown vscode:vscode /home/vscode/.claude' || true
-  fi
+# --- Align container vscode UID/GID with host (for share-mode bind mounts) ---
+# Bind-mounted files keep their host ownership, so the in-container user must
+# share the host's UID/GID to read & write them. Align once per container; the
+# bind-mount paths themselves are excluded from the chown sweep.
+if [ "$CLAUDE_CONFIG_MODE" = "share" ]; then
+  HOST_UID="$(id -u)"
+  HOST_GID="$(id -g)"
+  CUR_UID="$(exec_in_container id -u vscode 2>/dev/null | tr -d '[:space:]' || true)"
+  CUR_GID="$(exec_in_container id -g vscode 2>/dev/null | tr -d '[:space:]' || true)"
 
-  # Copy writable config files (Claude needs write access for token refresh, settings changes)
-  for cfg_file in "$HOME/.claude/settings.json" "$HOME/.claude/.credentials.json"; do
-    if [ -f "$cfg_file" ]; then
-      copy_to_container "$cfg_file" "/home/vscode/.claude/$(basename "$cfg_file")"
+  if [ -n "$CUR_UID" ] && { [ "$CUR_UID" != "$HOST_UID" ] || [ "$CUR_GID" != "$HOST_GID" ]; }; then
+    echo "Aligning container vscode (${CUR_UID}:${CUR_GID}) with host (${HOST_UID}:${HOST_GID})..."
+    ALIGN_SCRIPT='set -e
+if ! getent group '"$HOST_GID"' >/dev/null 2>&1; then
+  groupmod -g '"$HOST_GID"' vscode
+fi
+usermod -u '"$HOST_UID"' -g '"$HOST_GID"' vscode
+find /home/vscode -xdev \( -path /home/vscode/.claude -o -path /home/vscode/.claude.json \) -prune -o -print0 \
+  | xargs -0 -r chown -h '"$HOST_UID"':'"$HOST_GID"'
+'
+    if [ "$USE_DOCKER_EXEC" = true ]; then
+      docker exec -u root "$CONTAINER_ID" bash -c "$ALIGN_SCRIPT" || true
+    else
+      devcontainer exec --workspace-folder . "${REMOTE_ENV_ARGS[@]}" sudo bash -c "$ALIGN_SCRIPT" || true
     fi
-  done
-
-  # Generate ~/.claude.json with auth and onboarding state from host
-  if [ -f "$HOME/.claude.json" ] && command -v python3 &>/dev/null; then
-    echo "Syncing Claude auth state to container..."
-    CLAUDE_JSON=$(python3 -c "
-import json, sys
-try:
-    with open('$HOME/.claude.json') as f:
-        host = json.load(f)
-    container = {}
-    for key in ('hasCompletedOnboarding', 'lastOnboardingVersion', 'oauthAccount'):
-        if key in host:
-            container[key] = host[key]
-    json.dump(container, sys.stdout)
-except Exception:
-    sys.exit(1)
-" 2>/dev/null) && {
-      if [ "$USE_DOCKER_EXEC" = true ]; then
-        echo "$CLAUDE_JSON" | docker exec -i "$CONTAINER_ID" bash -c 'cat > /home/vscode/.claude.json'
-      else
-        echo "$CLAUDE_JSON" | devcontainer exec --workspace-folder . "${REMOTE_ENV_ARGS[@]}" bash -c 'cat > /home/vscode/.claude.json'
-      fi
-    } || true
   fi
 fi
 
@@ -446,6 +452,14 @@ fi
 
 if [ "$USE_DOCKER_EXEC" = true ]; then
   DOCKER_ENV_ARGS=()
+
+  # Propagate NuGet feed credentials from host.
+  if [ -n "${NuGetPackageSourceCredentials_median:-}" ]; then
+    DOCKER_ENV_ARGS+=(-e "NuGetPackageSourceCredentials_median=${NuGetPackageSourceCredentials_median}")
+  fi
+  if [ -n "${NuGetPackageSourceCredentials_mestus:-}" ]; then
+    DOCKER_ENV_ARGS+=(-e "NuGetPackageSourceCredentials_mestus=${NuGetPackageSourceCredentials_mestus}")
+  fi
 
   if [ "$ENABLE_X11" = true ]; then
     # Check if X11 Unix socket is mounted in container

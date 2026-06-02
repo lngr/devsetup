@@ -95,6 +95,29 @@ The following agents are automatically installed (`postCreateCommand.sh`) and up
 
 The aliases are configured in `~/.bashrc` and `~/.zshrc`. No API keys required -- the agents use OAuth login on first invocation.
 
+## Sharing the Claude Config
+
+New setups default to `CLAUDE_CONFIG_MODE=share`. In this mode `exec-devcontainer`
+bind-mounts the full `~/.claude` directory and `~/.claude.json` live (read-write)
+into the container. Memories, skills, commands, settings, plugins and the OAuth
+credentials are therefore shared with the host -- changes (e.g. a token refresh or
+a newly written memory) flow straight back.
+
+The setting lives in the user-local, gitignored `.devcontainer/devsetup.local.conf`
+and is chosen when running `devsetup`. Toggle it per project at any time:
+
+```
+devsetup --disable-claude-share [<dir>]   # opt out
+devsetup --enable-claude-share  [<dir>]   # opt back in
+```
+
+`exec-devcontainer` only consumes whatever the config says, so existing projects
+are never changed implicitly.
+
+> **Security note:** Sharing gives the container full read-write access to
+> `~/.claude` including `~/.claude/.credentials.json`. For containers running
+> untrusted code, disable sharing with `--disable-claude-share`.
+
 ## Git Modes in Detail
 
 ### Read-only (recommended for worktree workflows)
