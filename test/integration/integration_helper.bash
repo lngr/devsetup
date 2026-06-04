@@ -26,19 +26,23 @@ create_test_project() {
 
 # Generate the stdin sequence for devsetup.sh
 # Usage: generate_stdin [options] > stdin_file
-#   --project-name=NAME     (default: empty = accept default)
-#   --git-mode=1|2          (default: 1 = readonly)
-#   --base-image=1-7        (default: 1 = Ubuntu)
-#   --custom-image=URL      (required if --base-image=7)
-#   --services="1,3,5"      (1-based toggle numbers; default: none)
-#   --postgres-dbs=NAMES    (comma-sep DB names if postgres selected)
-#   --timezone=TZ           (default: empty = accept default)
-#   --docker-mode=1|2|3     (default: 1 = none)
-#   --dir-not-empty         (prepend confirm for non-empty dir)
-#   --overwrite             (prepend confirm for existing .devcontainer)
+#   --project-name=NAME       (default: empty = accept default)
+#   --git-mode=1|2            (default: 1 = readonly)
+#   --workspace-mount=1|2     (default: 1 = project only)
+#   --claude-share=y|n        (default: n = do not share)
+#   --base-image=1-7          (default: 1 = Ubuntu)
+#   --custom-image=URL        (required if --base-image=7)
+#   --services="1,3,5"        (1-based toggle numbers; default: none)
+#   --postgres-dbs=NAMES      (comma-sep DB names if postgres selected)
+#   --timezone=TZ             (default: empty = accept default)
+#   --docker-mode=1|2|3       (default: 1 = none)
+#   --dir-not-empty           (prepend confirm for non-empty dir)
+#   --overwrite               (prepend confirm for existing .devcontainer)
 generate_stdin() {
   local project_name=""
   local git_mode="1"
+  local workspace_mount="1"
+  local claude_share="n"
   local base_image="1"
   local custom_image=""
   local services=""
@@ -50,16 +54,18 @@ generate_stdin() {
 
   while [ $# -gt 0 ]; do
     case "$1" in
-      --project-name=*) project_name="${1#*=}" ;;
-      --git-mode=*)     git_mode="${1#*=}" ;;
-      --base-image=*)   base_image="${1#*=}" ;;
-      --custom-image=*) custom_image="${1#*=}" ;;
-      --services=*)     services="${1#*=}" ;;
-      --postgres-dbs=*) postgres_dbs="${1#*=}" ;;
-      --timezone=*)     timezone="${1#*=}" ;;
-      --docker-mode=*)  docker_mode="${1#*=}" ;;
-      --dir-not-empty)  dir_not_empty=true ;;
-      --overwrite)      overwrite=true ;;
+      --project-name=*)    project_name="${1#*=}" ;;
+      --git-mode=*)        git_mode="${1#*=}" ;;
+      --workspace-mount=*) workspace_mount="${1#*=}" ;;
+      --claude-share=*)    claude_share="${1#*=}" ;;
+      --base-image=*)      base_image="${1#*=}" ;;
+      --custom-image=*)    custom_image="${1#*=}" ;;
+      --services=*)        services="${1#*=}" ;;
+      --postgres-dbs=*)    postgres_dbs="${1#*=}" ;;
+      --timezone=*)        timezone="${1#*=}" ;;
+      --docker-mode=*)     docker_mode="${1#*=}" ;;
+      --dir-not-empty)     dir_not_empty=true ;;
+      --overwrite)         overwrite=true ;;
       *) echo "generate_stdin: unknown option: $1" >&2; return 1 ;;
     esac
     shift
@@ -80,6 +86,12 @@ generate_stdin() {
 
   # Git mode
   echo "$git_mode"
+
+  # Workspace mount
+  echo "$workspace_mount"
+
+  # Claude config sharing (y/n confirm)
+  echo "$claude_share"
 
   # Base image
   echo "$base_image"

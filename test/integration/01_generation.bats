@@ -61,19 +61,13 @@ teardown_file() {
   assert_success
 }
 
-@test "minimal: devcontainer.json has single compose file" {
-  run jq -r '.dockerComposeFile' "$MINIMAL_DIR/.devcontainer/devcontainer.json"
+@test "minimal: devcontainer.json compose files include local overlay" {
+  local json="$MINIMAL_DIR/.devcontainer/devcontainer.json"
+  run jq -r '.dockerComposeFile | length' "$json"
+  assert_output "2"
+  run jq -e '.dockerComposeFile | index("docker-compose.yml")' "$json"
   assert_success
-  assert_output 'docker-compose.yml'
-}
-
-@test "minimal: exec-devcontainer.sh exists and is executable" {
-  [ -f "$MINIMAL_DIR/exec-devcontainer.sh" ]
-  [ -x "$MINIMAL_DIR/exec-devcontainer.sh" ]
-}
-
-@test "minimal: exec-devcontainer.sh has readonly GIT_MODE" {
-  run grep 'GIT_MODE="readonly"' "$MINIMAL_DIR/exec-devcontainer.sh"
+  run jq -e '.dockerComposeFile | index("docker-compose.local.yml")' "$json"
   assert_success
 }
 
@@ -92,13 +86,6 @@ teardown_file() {
   [ -x "$MINIMAL_DIR/.devcontainer/postStartCommand.sh" ]
 }
 
-@test "minimal: agent scripts exist and are executable" {
-  [ -f "$MINIMAL_DIR/.devcontainer/scripts/install-agents.sh" ]
-  [ -x "$MINIMAL_DIR/.devcontainer/scripts/install-agents.sh" ]
-  [ -f "$MINIMAL_DIR/.devcontainer/scripts/update-agents.sh" ]
-  [ -x "$MINIMAL_DIR/.devcontainer/scripts/update-agents.sh" ]
-}
-
 @test "minimal: .env has COMPOSE_PROJECT_NAME" {
   run grep "^COMPOSE_PROJECT_NAME=" "$MINIMAL_DIR/.devcontainer/.env"
   assert_success
@@ -109,13 +96,13 @@ teardown_file() {
   [ -f "$conf" ]
   run grep "^PROJECT_NAME=" "$conf"
   assert_success
-  run grep "^GIT_MODE=readonly" "$conf"
+  run grep '^GIT_MODE="readonly"' "$conf"
   assert_success
   run grep "^BASE_IMAGE=" "$conf"
   assert_success
   run grep "^TIMEZONE=" "$conf"
   assert_success
-  run grep "^DOCKER_MODE=none" "$conf"
+  run grep '^DOCKER_MODE="none"' "$conf"
   assert_success
 }
 
@@ -167,10 +154,13 @@ teardown_file() {
   assert_success
 }
 
-@test "allsvc: devcontainer.json has two compose files" {
+@test "allsvc: devcontainer.json has base, services and local compose files" {
   run jq -r '.dockerComposeFile | length' "$ALLSVC_DIR/.devcontainer/devcontainer.json"
   assert_success
-  assert_output "2"
+  assert_output "3"
+  run jq -e '.dockerComposeFile | index("docker-compose.services.yml")' \
+    "$ALLSVC_DIR/.devcontainer/devcontainer.json"
+  assert_success
 }
 
 @test "allsvc: devcontainer.json runServices includes all services" {
@@ -198,8 +188,8 @@ teardown_file() {
   assert_success
 }
 
-@test "writable: exec-devcontainer.sh has writable GIT_MODE" {
-  run grep 'GIT_MODE="writable"' "$WRITABLE_DIR/exec-devcontainer.sh"
+@test "writable: devsetup.conf has writable GIT_MODE" {
+  run grep '^GIT_MODE="writable"' "$WRITABLE_DIR/.devcontainer/devsetup.conf"
   assert_success
 }
 

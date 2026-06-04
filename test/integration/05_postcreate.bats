@@ -17,17 +17,13 @@ setup_file() {
   # Create override to neutralize host-specific volumes
   create_test_compose_override "$POST_DIR"
 
-  # Mock the agent install script to avoid network dependency
-  cat > "$POST_DIR/.devcontainer/scripts/install-agents.sh" <<'MOCK'
+  # Personal overlay hook: exec-devcontainer normally generates this; here we drop
+  # in a marker overlay to verify postCreateCommand.sh actually runs it.
+  cat > "$POST_DIR/.devcontainer/postCreateCommand.local.sh" <<'OVL'
 #!/usr/bin/env bash
-echo "MOCK: install-agents.sh skipped in test"
-MOCK
-  chmod +x "$POST_DIR/.devcontainer/scripts/install-agents.sh"
-
-  # Patch postCreateCommand.sh: skip tool checks and agent installation
-  # (node/npm are provided by devcontainer features, not available in bare image)
-  sed -i '/command -v node/s/^/# /' "$POST_DIR/.devcontainer/postCreateCommand.sh"
-  sed -i '/command -v npm/s/^/# /' "$POST_DIR/.devcontainer/postCreateCommand.sh"
+echo "overlay-ran" > "$HOME/.postcreate_overlay_marker"
+OVL
+  chmod +x "$POST_DIR/.devcontainer/postCreateCommand.local.sh"
 
   # Build and start
   compose_up "$POST_DIR"
@@ -64,19 +60,8 @@ teardown_file() {
   assert_output --partial "America/New_York"
 }
 
-@test "postcreate: aliases file exists with claude/codex aliases" {
-  run compose_exec "$POST_DIR" cat /home/vscode/.devcontainer_aliases
+@test "postcreate: personal overlay hook is executed" {
+  run compose_exec "$POST_DIR" cat /home/vscode/.postcreate_overlay_marker
   assert_success
-  assert_output --partial "alias claude="
-  assert_output --partial "alias codex="
-}
-
-@test "postcreate: .bashrc sources the aliases file" {
-  run compose_exec "$POST_DIR" grep "devcontainer_aliases" /home/vscode/.bashrc
-  assert_success
-}
-
-@test "postcreate: ~/.local/bin is in PATH" {
-  run compose_exec "$POST_DIR" grep '.local/bin' /home/vscode/.bashrc
-  assert_success
+  assert_output "overlay-ran"
 }
