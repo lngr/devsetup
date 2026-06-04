@@ -42,9 +42,15 @@ prompt_confirm() {
 # Single-select from a list
 # Usage: prompt_select "Prompt" option1 option2 ...
 # Sets REPLY to the chosen option (string)
+#
+# Optional default: set PROMPT_DEFAULT to a 1-based option number before calling.
+# An empty answer then selects that option. The variable is consumed on entry so a
+# default never leaks into the next prompt.
 prompt_select() {
   local prompt="$1"; shift
   local options=("$@")
+  local default="${PROMPT_DEFAULT:-}"
+  PROMPT_DEFAULT=""
   local i
 
   printf '%s\n' "$prompt"
@@ -53,8 +59,15 @@ prompt_select() {
   done
 
   while true; do
-    printf 'Choice [1-%d]: ' "${#options[@]}"
+    if [ -n "$default" ]; then
+      printf 'Choice [1-%d] (default %d): ' "${#options[@]}" "$default"
+    else
+      printf 'Choice [1-%d]: ' "${#options[@]}"
+    fi
     read -r REPLY
+    if [ -z "$REPLY" ] && [ -n "$default" ]; then
+      REPLY="$default"
+    fi
     if [[ "$REPLY" =~ ^[0-9]+$ ]] && [ "$REPLY" -ge 1 ] && [ "$REPLY" -le "${#options[@]}" ]; then
       REPLY="${options[$((REPLY - 1))]}"
       return 0
@@ -66,6 +79,10 @@ prompt_select() {
 # Multi-select from a list (toggle with numbers, confirm with Enter)
 # Usage: prompt_multiselect "Prompt" option1 option2 ...
 # Sets SELECTED_INDICES as array of 0-based indices
+#
+# Optional defaults: set PROMPT_DEFAULT_INDICES to an array of 0-based indices
+# before calling to pre-toggle those options. The array is consumed on entry so
+# defaults never leak into the next prompt.
 prompt_multiselect() {
   local prompt="$1"; shift
   local options=("$@")
@@ -76,6 +93,16 @@ prompt_multiselect() {
   for i in "${!options[@]}"; do
     selected[$i]=0
   done
+
+  # Pre-toggle defaults, if provided
+  if declare -p PROMPT_DEFAULT_INDICES >/dev/null 2>&1; then
+    for i in "${PROMPT_DEFAULT_INDICES[@]}"; do
+      if [ "$i" -ge 0 ] && [ "$i" -lt "${#options[@]}" ]; then
+        selected[$i]=1
+      fi
+    done
+    PROMPT_DEFAULT_INDICES=()
+  fi
 
   printf '%s\n' "$prompt"
   printf '  (Toggle with numbers, press Enter when done)\n'

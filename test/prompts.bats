@@ -109,6 +109,34 @@ load test_helper
   assert_equal "$REPLY" "y"
 }
 
+@test "prompt_select: empty input uses PROMPT_DEFAULT" {
+  PROMPT_DEFAULT=2
+  prompt_select "Pick" "a" "b" "c" <<< ""
+  assert_equal "$REPLY" "b"
+}
+
+@test "prompt_select: explicit input overrides PROMPT_DEFAULT" {
+  PROMPT_DEFAULT=2
+  prompt_select "Pick" "a" "b" "c" <<< "3"
+  assert_equal "$REPLY" "c"
+}
+
+@test "prompt_select: shows default in prompt" {
+  PROMPT_DEFAULT=2
+  run prompt_select "Pick" "a" "b" "c" <<< ""
+  assert_output --partial "(default 2)"
+}
+
+@test "prompt_select: PROMPT_DEFAULT is consumed (does not leak)" {
+  PROMPT_DEFAULT=2
+  prompt_select "Pick" "a" "b" "c" <<< ""
+  assert_equal "$REPLY" "b"
+  # Second call has no default: empty input must re-prompt, not auto-select.
+  input=$'\n3\n'
+  prompt_select "Pick" "a" "b" "c" <<< "$input"
+  assert_equal "$REPLY" "c"
+}
+
 # --- prompt_multiselect ---
 
 @test "prompt_multiselect: enter without selection gives empty array" {
@@ -134,5 +162,39 @@ load test_helper
 @test "prompt_multiselect: toggle on then off gives empty" {
   input=$'2\n2\n\n'
   prompt_multiselect "Pick" "a" "b" "c" <<< "$input"
+  assert_equal "${#SELECTED_INDICES[@]}" 0
+}
+
+@test "prompt_multiselect: PROMPT_DEFAULT_INDICES pre-selects" {
+  PROMPT_DEFAULT_INDICES=(0 2)
+  prompt_multiselect "Pick" "a" "b" "c" <<< ""
+  assert_equal "${#SELECTED_INDICES[@]}" 2
+  assert_equal "${SELECTED_INDICES[0]}" 0
+  assert_equal "${SELECTED_INDICES[1]}" 2
+}
+
+@test "prompt_multiselect: pre-selected default can be toggled off" {
+  PROMPT_DEFAULT_INDICES=(0 2)
+  input=$'3\n\n'
+  prompt_multiselect "Pick" "a" "b" "c" <<< "$input"
+  assert_equal "${#SELECTED_INDICES[@]}" 1
+  assert_equal "${SELECTED_INDICES[0]}" 0
+}
+
+@test "prompt_multiselect: default plus newly toggled item" {
+  PROMPT_DEFAULT_INDICES=(0)
+  input=$'2\n\n'
+  prompt_multiselect "Pick" "a" "b" "c" <<< "$input"
+  assert_equal "${#SELECTED_INDICES[@]}" 2
+  assert_equal "${SELECTED_INDICES[0]}" 0
+  assert_equal "${SELECTED_INDICES[1]}" 1
+}
+
+@test "prompt_multiselect: PROMPT_DEFAULT_INDICES is consumed (does not leak)" {
+  PROMPT_DEFAULT_INDICES=(0 1)
+  prompt_multiselect "Pick" "a" "b" "c" <<< ""
+  assert_equal "${#SELECTED_INDICES[@]}" 2
+  # Second call without defaults must yield an empty selection.
+  prompt_multiselect "Pick" "a" "b" "c" <<< ""
   assert_equal "${#SELECTED_INDICES[@]}" 0
 }
