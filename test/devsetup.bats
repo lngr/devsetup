@@ -15,17 +15,28 @@ teardown() {
 }
 
 # Pipe answers for a minimal devsetup run (empty target dir):
-#   1. Project name → testproj
-#   2. Git mode → 1 (readonly)
-#   3. Workspace mount → 1 (project only)
-#   4. Base image → 1 (Ubuntu Noble)
-#   5. Services → (empty = none)
-#   6. Timezone → Europe/Berlin (default)
-#   7. Docker mode → 1 (none)
-#   8. Confirm → y
+#   1. Project name      → testproj
+#   2. Git mode          → 1 (readonly)
+#   3. Workspace mount   → 1 (project only)
+#   4. Claude config     → n (do not share)
+#   5. Base image        → 1 (Ubuntu Noble)
+#   6. Services          → (empty = none)
+#   7. Timezone          → Europe/Berlin (default)
+#   8. Docker mode       → 1 (none)
+#   9. Confirm           → y
 run_devsetup_minimal() {
   local target="${1:-$TEST_TMP/project}"
-  printf 'testproj\n1\n1\n1\n\nEurope/Berlin\n1\ny\n' | \
+  printf 'testproj\n1\n1\nn\n1\n\nEurope/Berlin\n1\ny\n' | \
+    bash "$REPO_ROOT/devsetup.sh" --target "$target"
+}
+
+# Re-run devsetup on a project that already has a devsetup.conf (reconfigure mode).
+# No overwrite/not-empty prompts appear; every prompt is pre-filled, so an empty
+# answer keeps the saved value. Order: project, git, workspace, claude, base,
+# services, timezone, docker, then the final confirm.
+run_devsetup_reconfigure_keep() {
+  local target="${1:-$TEST_TMP/project}"
+  printf '\n\n\n\n\n\n\n\ny\n' | \
     bash "$REPO_ROOT/devsetup.sh" --target "$target"
 }
 
@@ -190,13 +201,76 @@ run_devsetup_minimal() {
   local first_size
   first_size=$(wc -c < "$TEST_TMP/project/.gitignore")
 
-  # Run again (will ask overwrite + add to existing)
-  printf 'y\ny\ntestproj\n1\n1\n1\n\nEurope/Berlin\n1\ny\n' | \
-    bash "$REPO_ROOT/devsetup.sh" --target "$TEST_TMP/project"
+  # Run again – reconfigure mode keeps every value.
+  run_devsetup_reconfigure_keep
 
   local second_size
   second_size=$(wc -c < "$TEST_TMP/project/.gitignore")
   assert_equal "$first_size" "$second_size"
+}
+
+# --- Reconfigure mode ---
+
+@test "devsetup: reconfigure keeps devsetup.conf unchanged" {
+  run_devsetup_minimal
+  local first
+  first="$(cat "$TEST_TMP/project/.devcontainer/devsetup.conf")"
+
+  run_devsetup_reconfigure_keep
+
+  local second
+  second="$(cat "$TEST_TMP/project/.devcontainer/devsetup.conf")"
+  assert_equal "$first" "$second"
+}
+
+@test "devsetup: reconfigure announces existing config, not overwrite prompt" {
+  run_devsetup_minimal
+  run run_devsetup_reconfigure_keep
+  assert_success
+  assert_output --partial "Bestehende Konfiguration gefunden"
+  refute_output --partial "already exists. Overwrite?"
+}
+
+@test "devsetup: reconfigure changes only the edited value" {
+  run_devsetup_minimal
+  run grep 'DOCKER_MODE="none"' "$TEST_TMP/project/.devcontainer/devsetup.conf"
+  assert_success
+
+  # Reconfigure, keep everything except docker mode → 2 (privileged).
+  printf '\n\n\n\n\n\n\n2\ny\n' | \
+    bash "$REPO_ROOT/devsetup.sh" --target "$TEST_TMP/project"
+
+  run grep 'DOCKER_MODE="privileged"' "$TEST_TMP/project/.devcontainer/devsetup.conf"
+  assert_success
+  run grep 'PROJECT_NAME="testproj"' "$TEST_TMP/project/.devcontainer/devsetup.conf"
+  assert_success
+  run grep 'GIT_MODE="readonly"' "$TEST_TMP/project/.devcontainer/devsetup.conf"
+  assert_success
+}
+
+@test "devsetup: reconfigure keeps selected services" {
+  # First run selecting PostgreSQL (1) + Redis (2): project, git, workspace,
+  # claude, base, toggle 1, toggle 2, confirm, postgres dbs, timezone, docker, confirm.
+  printf 'svcproj\n1\n1\nn\n1\n1\n2\n\nsvcproj\nEurope/Berlin\n1\ny\n' | \
+    bash "$REPO_ROOT/devsetup.sh" --target "$TEST_TMP/project"
+  run grep 'SELECTED_SERVICES="0 1"' "$TEST_TMP/project/.devcontainer/devsetup.conf"
+  assert_success
+
+  # Reconfigure keeping all – postgres prompt reappears because postgres stays
+  # selected, so one extra empty line before timezone/docker/confirm.
+  printf '\n\n\n\n\n\n\n\n\ny\n' | \
+    bash "$REPO_ROOT/devsetup.sh" --target "$TEST_TMP/project"
+  run grep 'SELECTED_SERVICES="0 1"' "$TEST_TMP/project/.devcontainer/devsetup.conf"
+  assert_success
+  [ -f "$TEST_TMP/project/.devcontainer/docker-compose.services.yml" ]
+}
+
+@test "devsetup: fresh run on non-empty dir still prompts (no devsetup.conf)" {
+  echo "existing" > "$TEST_TMP/project/README.md"
+  # No devsetup.conf → not-empty confirm appears first. Decline it → abort.
+  run bash -c "printf 'n\n' | bash '$REPO_ROOT/devsetup.sh' --target '$TEST_TMP/project'"
+  assert_output --partial "Target directory is not empty"
+  [ ! -d "$TEST_TMP/project/.devcontainer" ]
 }
 
 # --- init-worktree.sh ---

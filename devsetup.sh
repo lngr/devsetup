@@ -89,6 +89,25 @@ HELP
 done
 
 TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
+PARENT_DIR="$(dirname "$TARGET_DIR")"
+
+# Reconfigure mode: a prior devsetup.conf pre-fills every prompt with the saved
+# value, so re-running on an existing project only asks to confirm or tweak.
+RECONFIGURE=false
+SAVED_CONF="$TARGET_DIR/.devcontainer/devsetup.conf"
+if [ -f "$SAVED_CONF" ]; then
+  RECONFIGURE=true
+  # devsetup.conf holds simple KEY="value" lines (self-generated, gitignored).
+  # Read them into SAVED_* variables without touching the live names.
+  while IFS='=' read -r k v; do
+    case "$k" in
+      PROJECT_NAME|GIT_MODE|WORKSPACE_MOUNT|BASE_IMAGE|EXTRA_PACKAGES|TIMEZONE|SELECTED_SERVICES|POSTGRES_DBS|DOCKER_MODE)
+        v="${v%\"}"; v="${v#\"}"
+        printf -v "SAVED_$k" '%s' "$v"
+        ;;
+    esac
+  done < "$SAVED_CONF"
+fi
 
 # ============================================================
 # Interactive Prompt Flow
@@ -97,41 +116,65 @@ TARGET_DIR="$(cd "$TARGET_DIR" && pwd)"
 prompt_header "devsetup – Dev Container Setup"
 echo "Target directory: $TARGET_DIR"
 
-# 1. Check for existing .devcontainer
-if [ -d "$TARGET_DIR/.devcontainer" ]; then
-  if ! prompt_confirm "Directory .devcontainer/ already exists. Overwrite?"; then
-    echo "Aborted."
-    exit 0
+if [ "$RECONFIGURE" = true ]; then
+  # Existing configuration found – every prompt is pre-filled; Enter keeps the
+  # saved value. Regeneration is confirmed by the final "Generate?" prompt.
+  echo "Bestehende Konfiguration gefunden – Werte vorbelegt (Enter behält)."
+else
+  # 1. Check for existing .devcontainer
+  if [ -d "$TARGET_DIR/.devcontainer" ]; then
+    if ! prompt_confirm "Directory .devcontainer/ already exists. Overwrite?"; then
+      echo "Aborted."
+      exit 0
+    fi
   fi
-fi
 
-# 1b. Warn if target directory is not empty
-if [ -n "$(ls -A "$TARGET_DIR" 2>/dev/null)" ]; then
-  echo "Warning: Target directory is not empty."
-  if ! prompt_confirm "Add devcontainer setup to this existing project?"; then
-    echo "Aborted."
-    exit 0
+  # 1b. Warn if target directory is not empty
+  if [ -n "$(ls -A "$TARGET_DIR" 2>/dev/null)" ]; then
+    echo "Warning: Target directory is not empty."
+    if ! prompt_confirm "Add devcontainer setup to this existing project?"; then
+      echo "Aborted."
+      exit 0
+    fi
   fi
 fi
 
 # 2. Project name
 BASENAME="$(basename "$TARGET_DIR")"
-DEFAULT_PROJECT="$(sanitize_name "$BASENAME")"
+DEFAULT_PROJECT="$(sanitize_name "${SAVED_PROJECT_NAME:-$BASENAME}")"
 prompt_input "Project name" "$DEFAULT_PROJECT"
 PROJECT_NAME="$(sanitize_name "$REPLY")"
 
-# 3. Git mode
+# 3. Git mode – a saved value (reconfigure) wins as the default; fresh setups
+# recommend writable single-container.
 prompt_header "Git Mode"
+case "${SAVED_GIT_MODE:-writable}" in
+  readonly) PROMPT_DEFAULT=1 ;;
+  *)        PROMPT_DEFAULT=2 ;;
+esac
 prompt_select "How should .git be mounted?" \
   "Read-only  (Worktrees managed on host, per-worktree containers)" \
-  "Writable   (Full git access in container, single container)"
+  "Writable   (Single-Container, ganzes Workspace gemountet) — empfohlen"
 case "$REPLY" in
   Read-only*) GIT_MODE="readonly" ;;
   *)          GIT_MODE="writable" ;;
 esac
 
-# 3b. Workspace mount mode
+# 3b. Workspace mount mode – writable single-container implies the parent mount
+# (the whole workspace, so neighbouring repos stay visible). Default to parent in
+# that case; a saved value wins when reconfiguring.
 prompt_header "Workspace Mount"
+echo "Parent-Verzeichnis: $PARENT_DIR"
+if [ -n "${SAVED_WORKSPACE_MOUNT:-}" ]; then
+  case "$SAVED_WORKSPACE_MOUNT" in
+    parent) PROMPT_DEFAULT=2 ;;
+    *)      PROMPT_DEFAULT=1 ;;
+  esac
+elif [ "$GIT_MODE" = "writable" ]; then
+  PROMPT_DEFAULT=2
+else
+  PROMPT_DEFAULT=1
+fi
 prompt_select "Wie soll das Workspace-Verzeichnis gemountet werden?" \
   "Nur Projekt   (nur dieses Repo unter /workspaces/<name>)" \
   "Parent-Verz.  (übergeordnetes Verzeichnis unter /workspaces, alle Nachbar-Repos sichtbar)"
@@ -157,6 +200,18 @@ fi
 
 # 4. Base image
 prompt_header "Base Image"
+# Map a saved image URL back onto its menu entry (custom URLs fall through to 7).
+CUSTOM_IMAGE_DEFAULT=""
+case "${SAVED_BASE_IMAGE:-}" in
+  "")                  PROMPT_DEFAULT="" ;;
+  *base:noble*)        PROMPT_DEFAULT=1 ;;
+  *javascript-node*)   PROMPT_DEFAULT=2 ;;
+  *dotnet:8*)          PROMPT_DEFAULT=3 ;;
+  *dotnet:9*)          PROMPT_DEFAULT=4 ;;
+  *python:3*)          PROMPT_DEFAULT=5 ;;
+  *go:*)               PROMPT_DEFAULT=6 ;;
+  *)                   PROMPT_DEFAULT=7; CUSTOM_IMAGE_DEFAULT="$SAVED_BASE_IMAGE" ;;
+esac
 prompt_select "Select base image:" \
   "Ubuntu Noble (generic)" \
   "Node.js 22" \
@@ -190,7 +245,7 @@ case "$REPLY" in
     BASE_IMAGE="mcr.microsoft.com/devcontainers/go:latest"
     ;;
   "Custom"*)
-    prompt_input "Enter custom image URL" ""
+    prompt_input "Enter custom image URL" "$CUSTOM_IMAGE_DEFAULT"
     BASE_IMAGE="$REPLY"
     ;;
 esac
@@ -205,6 +260,10 @@ SERVICE_OPTIONS=(
   "MinIO (S3)"
   "MongoDB"
 )
+# Pre-toggle previously selected services when reconfiguring.
+if [ -n "${SAVED_SELECTED_SERVICES:-}" ]; then
+  read -ra PROMPT_DEFAULT_INDICES <<< "$SAVED_SELECTED_SERVICES"
+fi
 prompt_multiselect "Select optional services:" "${SERVICE_OPTIONS[@]}"
 SELECTED_SERVICES=("${SELECTED_INDICES[@]}")
 
@@ -214,18 +273,23 @@ HAS_POSTGRES=false
 for idx in "${SELECTED_SERVICES[@]}"; do
   if [ "$idx" -eq 0 ]; then
     HAS_POSTGRES=true
-    prompt_input "PostgreSQL database names (comma-separated)" "$PROJECT_NAME"
+    prompt_input "PostgreSQL database names (comma-separated)" "${SAVED_POSTGRES_DBS:-$PROJECT_NAME}"
     POSTGRES_DBS="$REPLY"
   fi
 done
 
 # 6. Timezone
 prompt_header "Timezone"
-prompt_input "Timezone" "Europe/Berlin"
+prompt_input "Timezone" "${SAVED_TIMEZONE:-Europe/Berlin}"
 TIMEZONE="$REPLY"
 
 # 7. Docker-in-Docker
 prompt_header "Docker-in-Docker"
+case "${SAVED_DOCKER_MODE:-}" in
+  privileged) PROMPT_DEFAULT=2 ;;
+  sysbox)     PROMPT_DEFAULT=3 ;;
+  none)       PROMPT_DEFAULT=1 ;;
+esac
 prompt_select "Docker-Zugriff im Container?" \
   "Kein Docker" \
   "Docker-in-Docker (privileged)    – Eigener Docker-Daemon, braucht privileged mode" \
