@@ -34,12 +34,14 @@ TIER1_FILES=(
 
 TIER2_FILES=(
   "$INTEGRATION_DIR/02_dockerfile_build.bats"
+  "$INTEGRATION_DIR/06_user_mapping.bats"
 )
 
 TIER3_FILES=(
   "$INTEGRATION_DIR/03_compose_services.bats"
   "$INTEGRATION_DIR/04_dind_privileged.bats"
   "$INTEGRATION_DIR/05_postcreate.bats"
+  "$INTEGRATION_DIR/07_rebuild.bats"
 )
 
 run_tier() {
