@@ -13,8 +13,22 @@ WORKTREE_NAME="$(basename "$PROJECT_DIR")"
 # Sanitize: lowercase, only alphanum + hyphens
 SANITIZED_NAME="$(echo "$WORKTREE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g; s/--*/-/g; s/^-//; s/-$//')"
 
-# Build unique compose project name
-COMPOSE_PROJECT_NAME="devcontainer-{{PROJECT_NAME}}-${SANITIZED_NAME}"
+# Mount und Scope werden zur Scaffold-Zeit gebacken; eine Env-Var überschreibt
+# den Scope für einen einzelnen Start (gesetzt vom Launcher).
+WORKSPACE_MOUNT="${WORKSPACE_MOUNT:-{{WORKSPACE_MOUNT}}}"
+CONTAINER_SCOPE="${CONTAINER_SCOPE:-{{CONTAINER_SCOPE}}}"
+
+# project-Mount bindet jedes Verzeichnis an seinen eigenen Container.
+if [ "$WORKSPACE_MOUNT" = "project" ]; then
+  CONTAINER_SCOPE="per-worktree"
+fi
+
+# Compose-Projektname aus dem effektiven Scope.
+if [ "$CONTAINER_SCOPE" = "shared" ] || [ "$SANITIZED_NAME" = "{{PROJECT_NAME}}" ]; then
+  COMPOSE_PROJECT_NAME="devcontainer-{{PROJECT_NAME}}"
+else
+  COMPOSE_PROJECT_NAME="devcontainer-{{PROJECT_NAME}}-${SANITIZED_NAME}"
+fi
 
 # Update COMPOSE_PROJECT_NAME in .env (preserve other variables)
 ENV_FILE="$SCRIPT_DIR/.env"

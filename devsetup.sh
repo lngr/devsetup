@@ -571,25 +571,13 @@ render_template "$TPL/devcontainer.json.tpl" "$OUTDIR/devcontainer.json" \
 
 # --- init-worktree.sh ---
 render_template "$TPL/init-worktree.sh.tpl" "$OUTDIR/init-worktree.sh" \
-  "PROJECT_NAME=$PROJECT_NAME"
+  "PROJECT_NAME=$PROJECT_NAME" \
+  "WORKSPACE_MOUNT=$WORKSPACE_MOUNT" \
+  "CONTAINER_SCOPE=$CONTAINER_SCOPE"
 
-# --- Append workspace compose generation for parent mount ---
+# --- Append workspace compose stub for parent mount ---
 if [ "$WORKSPACE_MOUNT" = "parent" ]; then
-  if [ "$GIT_MODE" = "readonly" ]; then
-    cat >> "$OUTDIR/init-worktree.sh" << 'INITEOF'
-
-# Generate docker-compose.workspace.yml for parent workspace mount
-WORKSPACE_COMPOSE="$SCRIPT_DIR/docker-compose.workspace.yml"
-cat > "$WORKSPACE_COMPOSE" <<COMPOSEOF
-services:
-  dev:
-    volumes:
-      - ../.git:/workspaces/${WORKTREE_NAME}/.git:ro
-COMPOSEOF
-echo "Generated docker-compose.workspace.yml (git readonly) for worktree: $WORKTREE_NAME"
-INITEOF
-  else
-    cat >> "$OUTDIR/init-worktree.sh" << 'INITEOF'
+  cat >> "$OUTDIR/init-worktree.sh" << 'INITEOF'
 
 # Generate docker-compose.workspace.yml stub for parent workspace mount
 WORKSPACE_COMPOSE="$SCRIPT_DIR/docker-compose.workspace.yml"
@@ -598,7 +586,6 @@ services: {}
 COMPOSEOF
 echo "Generated docker-compose.workspace.yml stub"
 INITEOF
-  fi
 fi
 
 chmod +x "$OUTDIR/init-worktree.sh"
