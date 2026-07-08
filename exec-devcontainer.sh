@@ -24,11 +24,10 @@ Options:
   -r, --rebuild   Stop and remove the dev container and its locally built image,
                   then rebuild from scratch on start. Service containers and
                   named data volumes are kept. Asks for confirmation first.
-      --isolated      Diesen Start in einem eigenen Container je Worktree
-                      ausführen (nur bei WORKSPACE_MOUNT=parent). Alias:
-                      --own-container.
-      --shared        Diesen Start im geteilten Projekt-Container ausführen
-                      (nur bei WORKSPACE_MOUNT=parent).
+      --isolated  Run this launch in its own container per worktree
+                  (only with WORKSPACE_MOUNT=parent). Alias: --own-container.
+      --shared    Run this launch in the shared project container
+                  (only with WORKSPACE_MOUNT=parent).
   -h, --help      Show this help and exit.
 
 Without a COMMAND an interactive bash shell is opened. Any COMMAND after the
@@ -90,11 +89,11 @@ fi
 : "${CODEX_FLAGS:=--dangerously-bypass-approvals-and-sandbox}"
 : "${SERVICE_NAME:=dev}"
 
-# Scope-Flags sind nur bei parent-Mount sinnvoll; bei project ist jeder Worktree
-# ohnehin an seinen eigenen Container gebunden.
+# Scope flags only make sense at parent mount; at project mount every worktree
+# is bound to its own container anyway.
 if [ -n "$SCOPE_OVERRIDE" ] && [ "$WORKSPACE_MOUNT" != "parent" ]; then
-  echo "ERROR: Scope-Flags erfordern WORKSPACE_MOUNT=parent (aktuell '$WORKSPACE_MOUNT')." >&2
-  echo "       Bei project-Mount hat jeder Worktree immer einen eigenen Container." >&2
+  echo "ERROR: scope flags require WORKSPACE_MOUNT=parent (currently '$WORKSPACE_MOUNT')." >&2
+  echo "       At project mount every worktree always has its own container." >&2
   exit 1
 fi
 
