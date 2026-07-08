@@ -17,6 +17,14 @@ setup_file() {
   # Create override to neutralize host-specific volumes
   create_test_compose_override "$POST_DIR"
 
+  # Remap zum No-Op machen: Container-User bleibt vscode/1000 unter /home/vscode.
+  cat >> "$POST_DIR/.devcontainer/.env" <<'ENVEOF'
+HOST_USER=vscode
+HOST_UID=1000
+HOST_GID=1000
+HOST_HOME=/home/vscode
+ENVEOF
+
   # Personal overlay hook: exec-devcontainer normally generates this; here we drop
   # in a marker overlay to verify postCreateCommand.sh actually runs it.
   cat > "$POST_DIR/.devcontainer/postCreateCommand.local.sh" <<'OVL'
