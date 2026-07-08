@@ -92,11 +92,11 @@ services:
         target: /tmp/.X11-unix
       - type: bind
         source: \${XAUTHORITY_PATH:-/dev/null}
-        target: /home/vscode/.Xauthority
+        target: ${HOME}/.Xauthority
         read_only: true
     environment:
       - DISPLAY=\${DISPLAY}
-      - XAUTHORITY=/home/vscode/.Xauthority
+      - XAUTHORITY=${HOME}/.Xauthority
       - QT_X11_NO_MITSHM=1
 LOCALCOMPOSE
     else

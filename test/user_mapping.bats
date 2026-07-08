@@ -100,3 +100,24 @@ teardown() {
   run grep -q '"remoteUser": "vscode"' "$REPO_ROOT/templates/devcontainer.json.tpl"
   assert_failure
 }
+
+# --- exec-devcontainer: keine fixen vscode-Pfade mehr ---
+
+@test "exec-devcontainer.sh enthält keinen fixen /home/vscode-Pfad" {
+  run grep -n '/home/vscode' "$REPO_ROOT/exec-devcontainer.sh"
+  assert_failure
+}
+
+@test "exec-devcontainer.sh exec läuft als Host-User statt fix vscode" {
+  run grep -n -- '-u vscode' "$REPO_ROOT/exec-devcontainer.sh"
+  assert_failure
+  run grep -q -- '-u "$(id -un)"' "$REPO_ROOT/exec-devcontainer.sh"
+  assert_success
+}
+
+@test "exec-devcontainer.sh hat keinen UID-Align- und keinen Home-Symlink-Block" {
+  run grep -q 'Align container vscode' "$REPO_ROOT/exec-devcontainer.sh"
+  assert_failure
+  run grep -q 'Map the host home path' "$REPO_ROOT/exec-devcontainer.sh"
+  assert_failure
+}

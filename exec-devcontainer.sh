@@ -86,13 +86,13 @@ if [ "$CLAUDE_CONFIG_MODE" = "share" ]; then
   if [ -d "$HOME/.claude" ]; then
     CLAUDE_MOUNTS="${CLAUDE_MOUNTS}      - type: bind
         source: ${HOME}/.claude
-        target: /home/vscode/.claude
+        target: ${HOME}/.claude
 "
   fi
   if [ -f "$HOME/.claude.json" ]; then
     CLAUDE_MOUNTS="${CLAUDE_MOUNTS}      - type: bind
         source: ${HOME}/.claude.json
-        target: /home/vscode/.claude.json
+        target: ${HOME}/.claude.json
 "
   fi
 fi
@@ -108,11 +108,11 @@ services:
         target: /X11-unix
       - type: bind
         source: \${XAUTHORITY_PATH:-/dev/null}
-        target: /home/vscode/.Xauthority
+        target: ${HOME}/.Xauthority
         read_only: true
 ${CLAUDE_MOUNTS}    environment:
       - DISPLAY=\${DISPLAY}
-      - XAUTHORITY=/home/vscode/.Xauthority
+      - XAUTHORITY=${HOME}/.Xauthority
       - QT_X11_NO_MITSHM=1
 LOCALCOMPOSE
 elif [ -n "$CLAUDE_MOUNTS" ]; then
@@ -135,7 +135,7 @@ fi
 REMOTE_ENV_ARGS=()
 if [ "$ENABLE_X11" = true ]; then
   REMOTE_ENV_ARGS+=(--remote-env "DISPLAY=${DISPLAY:-}")
-  REMOTE_ENV_ARGS+=(--remote-env "XAUTHORITY=/home/vscode/.Xauthority")
+  REMOTE_ENV_ARGS+=(--remote-env "XAUTHORITY=${HOME}/.Xauthority")
   REMOTE_ENV_ARGS+=(--remote-env "QT_X11_NO_MITSHM=1")
 fi
 
@@ -398,41 +398,13 @@ fi
 # --- Sync tmux.conf ---
 if [ "$SYNC_TMUX" = true ] && [ -f "$HOME/.tmux.conf" ]; then
   echo "Syncing ~/.tmux.conf to container..."
-  copy_to_container "$HOME/.tmux.conf" "/home/vscode/.tmux.conf"
+  copy_to_container "$HOME/.tmux.conf" "$HOME/.tmux.conf"
   exec_in_container bash -c '
     if command -v tmux &> /dev/null && tmux list-sessions &> /dev/null; then
       echo "Reloading tmux config in running sessions..."
-      tmux source-file /home/vscode/.tmux.conf 2>/dev/null || true
+      tmux source-file "$HOME/.tmux.conf" 2>/dev/null || true
     fi
   ' || true
-fi
-
-# --- Align container vscode UID/GID with host (for share-mode bind mounts) ---
-# Bind-mounted files keep their host ownership, so the in-container user must
-# share the host's UID/GID to read & write them. Align once per container; the
-# bind-mount paths themselves are excluded from the chown sweep.
-if [ "$CLAUDE_CONFIG_MODE" = "share" ]; then
-  HOST_UID="$(id -u)"
-  HOST_GID="$(id -g)"
-  CUR_UID="$(exec_in_container id -u vscode 2>/dev/null | tr -d '[:space:]' || true)"
-  CUR_GID="$(exec_in_container id -g vscode 2>/dev/null | tr -d '[:space:]' || true)"
-
-  if [ -n "$CUR_UID" ] && { [ "$CUR_UID" != "$HOST_UID" ] || [ "$CUR_GID" != "$HOST_GID" ]; }; then
-    echo "Aligning container vscode (${CUR_UID}:${CUR_GID}) with host (${HOST_UID}:${HOST_GID})..."
-    ALIGN_SCRIPT='set -e
-if ! getent group '"$HOST_GID"' >/dev/null 2>&1; then
-  groupmod -g '"$HOST_GID"' vscode
-fi
-usermod -u '"$HOST_UID"' -g '"$HOST_GID"' vscode
-find /home/vscode -xdev \( -path /home/vscode/.claude -o -path /home/vscode/.claude.json \) -prune -o -print0 \
-  | xargs -0 -r chown -h '"$HOST_UID"':'"$HOST_GID"'
-'
-    if [ "$USE_DOCKER_EXEC" = true ]; then
-      docker exec -u root "$CONTAINER_ID" bash -c "$ALIGN_SCRIPT" || true
-    else
-      devcontainer exec --workspace-folder . "${REMOTE_ENV_ARGS[@]}" sudo bash -c "$ALIGN_SCRIPT" || true
-    fi
-  fi
 fi
 
 # ============================================================
@@ -467,7 +439,7 @@ if [ "$USE_DOCKER_EXEC" = true ]; then
 
     if [ "$X11_SOCKET_MOUNTED" = "yes" ] && [ -n "${DISPLAY:-}" ]; then
       DOCKER_ENV_ARGS+=(-e "DISPLAY=$DISPLAY")
-      [ -n "${XAUTHORITY_PATH:-}" ] && DOCKER_ENV_ARGS+=(-e "XAUTHORITY=/home/vscode/.Xauthority")
+      [ -n "${XAUTHORITY_PATH:-}" ] && DOCKER_ENV_ARGS+=(-e "XAUTHORITY=${HOME}/.Xauthority")
     else
       # No Unix socket – use TCP via host IP
       echo "X11 Unix socket not mounted. Setting up TCP forwarding via socat..."
@@ -541,9 +513,9 @@ if [ "$USE_DOCKER_EXEC" = true ]; then
 
 
   if [ -t 0 ]; then
-    exec docker exec -it "${DOCKER_ENV_ARGS[@]}" -u vscode -w "$CONTAINER_WORKDIR" "$CONTAINER_ID" "$@"
+    exec docker exec -it "${DOCKER_ENV_ARGS[@]}" -u "$(id -un)" -w "$CONTAINER_WORKDIR" "$CONTAINER_ID" "$@"
   else
-    exec docker exec -i "${DOCKER_ENV_ARGS[@]}" -u vscode -w "$CONTAINER_WORKDIR" "$CONTAINER_ID" "$@"
+    exec docker exec -i "${DOCKER_ENV_ARGS[@]}" -u "$(id -un)" -w "$CONTAINER_WORKDIR" "$CONTAINER_ID" "$@"
   fi
 else
   exec devcontainer exec --workspace-folder . "${REMOTE_ENV_ARGS[@]}" "$@"
