@@ -9,6 +9,40 @@ set -e
 DEVSETUP_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
 # ============================================================
+# Parse launcher options (before any project command)
+# ============================================================
+
+print_help() {
+  cat <<'HELP'
+Usage: exec-devcontainer [OPTIONS] [COMMAND...]
+
+Builds (if needed) and starts the devcontainer for the current project, then
+opens an interactive shell or runs COMMAND inside it. Reads project config from
+.devcontainer/devsetup.conf.
+
+Options:
+  -r, --rebuild   Stop and remove the dev container and its locally built image,
+                  then rebuild from scratch on start. Service containers and
+                  named data volumes are kept. Asks for confirmation first.
+  -h, --help      Show this help and exit.
+
+Without a COMMAND an interactive bash shell is opened. Any COMMAND after the
+options (and its own arguments) runs inside the container.
+HELP
+}
+
+DO_REBUILD=false
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -h|--help) print_help; exit 0 ;;
+    -r|--rebuild) DO_REBUILD=true; shift ;;
+    --) shift; break ;;
+    -*) echo "ERROR: unknown option '$1'" >&2; print_help >&2; exit 1 ;;
+    *) break ;;
+  esac
+done
+
+# ============================================================
 # Read project config
 # ============================================================
 
@@ -56,6 +90,18 @@ case "$CLAUDE_CONFIG_MODE" in
     exit 1
     ;;
 esac
+
+# Confirm a forced rebuild up front, before any container work happens.
+if [ "$DO_REBUILD" = true ]; then
+  echo "WARNING: --rebuild stops and removes the dev container and its built image."
+  echo "         Service containers and named data volumes are kept."
+  printf "Proceed with rebuild? [y/N] "
+  read -r REBUILD_REPLY || REBUILD_REPLY=""
+  case "$REBUILD_REPLY" in
+    y|Y|yes|YES) ;;
+    *) echo "Rebuild aborted."; exit 0 ;;
+  esac
+fi
 
 # ============================================================
 # 1. Generate personal overlay files
@@ -303,6 +349,21 @@ X11_SOCKET_DIR=${X11_SOCKET_DIR}
 XAUTHORITY_PATH=${XAUTHORITY_PATH}
 DISPLAY=${DISPLAY:-}
 EOF
+fi
+
+# ============================================================
+# Force rebuild: tear down existing dev container and image
+# ============================================================
+# Runs after init-worktree has (re)written .env, so COMPOSE_PROJECT_NAME
+# matches the existing container. The teardown keeps service containers and
+# named data volumes; the following 'devcontainer up' rebuilds the dev image.
+
+if [ "$DO_REBUILD" = true ]; then
+  REBUILD_CPN="$(grep -E '^COMPOSE_PROJECT_NAME=' .devcontainer/.env 2>/dev/null | head -n1 | cut -d= -f2-)"
+  # shellcheck source=/dev/null
+  source "$DEVSETUP_DIR/lib/rebuild.sh"
+  echo "Removing dev container and image for '${REBUILD_CPN:-<none>}'..."
+  remove_dev_container_and_image "$REBUILD_CPN" "$SERVICE_NAME"
 fi
 
 # ============================================================

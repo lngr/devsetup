@@ -146,6 +146,37 @@ UPDATE
   )
 }
 
+# --- Launcher options ---
+
+@test "exec-devcontainer: --help prints usage with all options" {
+  run bash "$REPO_ROOT/exec-devcontainer.sh" --help
+  assert_success
+  assert_output --partial "Usage: exec-devcontainer"
+  assert_output --partial "--rebuild"
+  assert_output --partial "--help"
+}
+
+@test "exec-devcontainer: -h is an alias for --help" {
+  run bash "$REPO_ROOT/exec-devcontainer.sh" -h
+  assert_success
+  assert_output --partial "Usage: exec-devcontainer"
+}
+
+@test "exec-devcontainer: --help works without devsetup.conf" {
+  rm "$TEST_TMP/project/.devcontainer/devsetup.conf"
+  cd "$TEST_TMP/project"
+  run bash "$REPO_ROOT/exec-devcontainer.sh" --help
+  assert_success
+  assert_output --partial "Usage: exec-devcontainer"
+}
+
+@test "exec-devcontainer: unknown option fails with hint" {
+  cd "$TEST_TMP/project"
+  run bash "$REPO_ROOT/exec-devcontainer.sh" --bogus
+  assert_failure
+  assert_output --partial "unknown option"
+}
+
 # --- Config reading ---
 
 @test "exec-devcontainer: fails without devsetup.conf" {
