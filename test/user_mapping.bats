@@ -43,3 +43,24 @@ teardown() {
   run grep -E "^HOST_HOME=$HOME$" "$env_file"
   assert_success
 }
+
+# --- Dockerfile: User-Remap ---
+
+@test "generierter Dockerfile enthält den User-Remap-Block" {
+  mkdir -p "$TEST_TMP/proj"
+  # devsetup erzeugt den Dockerfile inline; hier nur den erzeugten Inhalt prüfen.
+  # Der Remap ist an den ARG-Deklarationen und usermod erkennbar.
+  run grep -q 'ARG HOST_USER' "$REPO_ROOT/templates/Dockerfile.tpl"
+  assert_success
+  run grep -q 'usermod -l "\$HOST_USER"' "$REPO_ROOT/templates/Dockerfile.tpl"
+  assert_success
+  run grep -q 'usermod -d "\$HOST_HOME" -m "\$HOST_USER"' "$REPO_ROOT/templates/Dockerfile.tpl"
+  assert_success
+}
+
+@test "devsetup.sh erzeugt Dockerfile mit User-Remap" {
+  run grep -q 'ARG HOST_USER' "$REPO_ROOT/devsetup.sh"
+  assert_success
+  run grep -q 'usermod -l' "$REPO_ROOT/devsetup.sh"
+  assert_success
+}
