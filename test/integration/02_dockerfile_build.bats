@@ -12,7 +12,7 @@ setup_file() {
 
   # Scenario: Ubuntu Noble
   UBUNTU_DIR="$(create_test_project "build-ubuntu")"
-  generate_stdin --git-mode=1 --base-image=1 --docker-mode=1 > "$STDIN_TMPDIR/ubuntu.txt"
+  generate_stdin --base-image=1 --docker-mode=1 > "$STDIN_TMPDIR/ubuntu.txt"
   run_devsetup "$UBUNTU_DIR" "$STDIN_TMPDIR/ubuntu.txt"
   export UBUNTU_DIR
   export UBUNTU_TAG="${BUILD_TAG_PREFIX}-ubuntu"
@@ -20,7 +20,7 @@ setup_file() {
 
   # Scenario: Node.js 22
   NODE_DIR="$(create_test_project "build-node")"
-  generate_stdin --git-mode=1 --base-image=2 --docker-mode=1 > "$STDIN_TMPDIR/node.txt"
+  generate_stdin --base-image=2 --docker-mode=1 > "$STDIN_TMPDIR/node.txt"
   run_devsetup "$NODE_DIR" "$STDIN_TMPDIR/node.txt"
   export NODE_DIR
   export NODE_TAG="${BUILD_TAG_PREFIX}-node"
@@ -28,7 +28,7 @@ setup_file() {
 
   # Scenario: Python 3
   PYTHON_DIR="$(create_test_project "build-python")"
-  generate_stdin --git-mode=1 --base-image=5 --docker-mode=1 > "$STDIN_TMPDIR/python.txt"
+  generate_stdin --base-image=5 --docker-mode=1 > "$STDIN_TMPDIR/python.txt"
   run_devsetup "$PYTHON_DIR" "$STDIN_TMPDIR/python.txt"
   export PYTHON_DIR
   export PYTHON_TAG="${BUILD_TAG_PREFIX}-python"

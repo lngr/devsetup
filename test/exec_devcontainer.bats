@@ -13,7 +13,8 @@ setup() {
   # Create minimal devsetup.conf
   cat > "$TEST_TMP/project/.devcontainer/devsetup.conf" <<'EOF'
 PROJECT_NAME=testproj
-GIT_MODE=readonly
+WORKSPACE_MOUNT=project
+CONTAINER_SCOPE=per-worktree
 BASE_IMAGE=mcr.microsoft.com/devcontainers/base:noble
 TIMEZONE=Europe/Berlin
 DOCKER_MODE=none

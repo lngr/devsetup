@@ -10,7 +10,7 @@ setup_file() {
   POST_DIR="$(create_test_project "postcreate")"
   STDIN_TMPDIR="$(mktemp -d /tmp/devsetup-itest-stdin-XXXXXX)"
   export STDIN_TMPDIR
-  generate_stdin --git-mode=1 --base-image=1 --timezone="America/New_York" \
+  generate_stdin --base-image=1 --timezone="America/New_York" \
     --docker-mode=1 > "$STDIN_TMPDIR/postcreate.txt"
   run_devsetup "$POST_DIR" "$STDIN_TMPDIR/postcreate.txt"
 

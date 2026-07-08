@@ -10,7 +10,7 @@ setup_file() {
   SVC_DIR="$(create_test_project "services")"
   STDIN_TMPDIR="$(mktemp -d /tmp/devsetup-itest-stdin-XXXXXX)"
   export STDIN_TMPDIR
-  generate_stdin --git-mode=1 --base-image=1 \
+  generate_stdin --base-image=1 \
     --services="1,2,3,4,5,6" --postgres-dbs="testdb" \
     --docker-mode=1 > "$STDIN_TMPDIR/services.txt"
   run_devsetup "$SVC_DIR" "$STDIN_TMPDIR/services.txt"

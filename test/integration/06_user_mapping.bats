@@ -9,7 +9,7 @@ setup_file() {
   UM_DIR="$(create_test_project "usermap")"
   STDIN_TMPDIR="$(mktemp -d /tmp/devsetup-itest-stdin-XXXXXX)"
   export STDIN_TMPDIR
-  generate_stdin --git-mode=1 --base-image=1 --docker-mode=1 > "$STDIN_TMPDIR/usermap.txt"
+  generate_stdin --base-image=1 --docker-mode=1 > "$STDIN_TMPDIR/usermap.txt"
   run_devsetup "$UM_DIR" "$STDIN_TMPDIR/usermap.txt"
 
   create_test_compose_override "$UM_DIR"

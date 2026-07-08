@@ -27,8 +27,8 @@ create_test_project() {
 # Generate the stdin sequence for devsetup.sh
 # Usage: generate_stdin [options] > stdin_file
 #   --project-name=NAME       (default: empty = accept default)
-#   --git-mode=1|2            (default: 1 = readonly)
 #   --workspace-mount=1|2     (default: 1 = project only)
+#   --container-scope=1|2     (default: 1 = shared; nur bei workspace-mount=2 abgefragt)
 #   --claude-share=y|n        (default: n = do not share)
 #   --base-image=1-7          (default: 1 = Ubuntu)
 #   --custom-image=URL        (required if --base-image=7)
@@ -40,8 +40,8 @@ create_test_project() {
 #   --overwrite               (prepend confirm for existing .devcontainer)
 generate_stdin() {
   local project_name=""
-  local git_mode="1"
   local workspace_mount="1"
+  local container_scope="1"
   local claude_share="n"
   local base_image="1"
   local custom_image=""
@@ -55,8 +55,8 @@ generate_stdin() {
   while [ $# -gt 0 ]; do
     case "$1" in
       --project-name=*)    project_name="${1#*=}" ;;
-      --git-mode=*)        git_mode="${1#*=}" ;;
       --workspace-mount=*) workspace_mount="${1#*=}" ;;
+      --container-scope=*) container_scope="${1#*=}" ;;
       --claude-share=*)    claude_share="${1#*=}" ;;
       --base-image=*)      base_image="${1#*=}" ;;
       --custom-image=*)    custom_image="${1#*=}" ;;
@@ -84,11 +84,13 @@ generate_stdin() {
   # Project name (empty = accept default)
   echo "$project_name"
 
-  # Git mode
-  echo "$git_mode"
-
   # Workspace mount
   echo "$workspace_mount"
+
+  # Container scope (only asked at parent mount)
+  if [ "$workspace_mount" = "2" ]; then
+    echo "$container_scope"
+  fi
 
   # Claude config sharing (y/n confirm)
   echo "$claude_share"

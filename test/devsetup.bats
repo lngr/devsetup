@@ -14,29 +14,29 @@ teardown() {
   rm -rf "$TEST_TMP"
 }
 
-# Pipe answers for a minimal devsetup run (empty target dir):
+# Pipe answers for a minimal devsetup run (empty target dir), Nur-Projekt-Mount
+# also unterbleibt der Container-Scope-Prompt:
 #   1. Project name      → testproj
-#   2. Git mode          → 1 (readonly)
-#   3. Workspace mount   → 1 (project only)
-#   4. Claude config     → n (do not share)
-#   5. Base image        → 1 (Ubuntu Noble)
-#   6. Services          → (empty = none)
-#   7. Timezone          → Europe/Berlin (default)
-#   8. Docker mode       → 1 (none)
-#   9. Confirm           → y
+#   2. Workspace mount   → 1 (project only)
+#   3. Claude config     → n (do not share)
+#   4. Base image        → 1 (Ubuntu Noble)
+#   5. Services          → (empty = none)
+#   6. Timezone          → Europe/Berlin (default)
+#   7. Docker mode       → 1 (none)
+#   8. Confirm           → y
 run_devsetup_minimal() {
   local target="${1:-$TEST_TMP/project}"
-  printf 'testproj\n1\n1\nn\n1\n\nEurope/Berlin\n1\ny\n' | \
+  printf 'testproj\n1\nn\n1\n\nEurope/Berlin\n1\ny\n' | \
     bash "$REPO_ROOT/devsetup.sh" --target "$target"
 }
 
 # Re-run devsetup on a project that already has a devsetup.conf (reconfigure mode).
 # No overwrite/not-empty prompts appear; every prompt is pre-filled, so an empty
-# answer keeps the saved value. Order: project, git, workspace, claude, base,
+# answer keeps the saved value. Order: project, workspace, claude, base,
 # services, timezone, docker, then the final confirm.
 run_devsetup_reconfigure_keep() {
   local target="${1:-$TEST_TMP/project}"
-  printf '\n\n\n\n\n\n\n\ny\n' | \
+  printf '\n\n\n\n\n\n\ny\n' | \
     bash "$REPO_ROOT/devsetup.sh" --target "$target"
 }
 
@@ -169,9 +169,9 @@ run_devsetup_reconfigure_keep() {
   assert_success
 }
 
-@test "devsetup: devsetup.conf contains GIT_MODE" {
+@test "devsetup: devsetup.conf contains CONTAINER_SCOPE" {
   run_devsetup_minimal
-  run grep 'GIT_MODE="readonly"' "$TEST_TMP/project/.devcontainer/devsetup.conf"
+  run grep 'CONTAINER_SCOPE="per-worktree"' "$TEST_TMP/project/.devcontainer/devsetup.conf"
   assert_success
 }
 
@@ -237,28 +237,28 @@ run_devsetup_reconfigure_keep() {
   assert_success
 
   # Reconfigure, keep everything except docker mode → 2 (privileged).
-  printf '\n\n\n\n\n\n\n2\ny\n' | \
+  printf '\n\n\n\n\n\n2\ny\n' | \
     bash "$REPO_ROOT/devsetup.sh" --target "$TEST_TMP/project"
 
   run grep 'DOCKER_MODE="privileged"' "$TEST_TMP/project/.devcontainer/devsetup.conf"
   assert_success
   run grep 'PROJECT_NAME="testproj"' "$TEST_TMP/project/.devcontainer/devsetup.conf"
   assert_success
-  run grep 'GIT_MODE="readonly"' "$TEST_TMP/project/.devcontainer/devsetup.conf"
+  run grep 'CONTAINER_SCOPE="per-worktree"' "$TEST_TMP/project/.devcontainer/devsetup.conf"
   assert_success
 }
 
 @test "devsetup: reconfigure keeps selected services" {
-  # First run selecting PostgreSQL (1) + Redis (2): project, git, workspace,
+  # First run selecting PostgreSQL (1) + Redis (2): project, workspace,
   # claude, base, toggle 1, toggle 2, confirm, postgres dbs, timezone, docker, confirm.
-  printf 'svcproj\n1\n1\nn\n1\n1\n2\n\nsvcproj\nEurope/Berlin\n1\ny\n' | \
+  printf 'svcproj\n1\nn\n1\n1\n2\n\nsvcproj\nEurope/Berlin\n1\ny\n' | \
     bash "$REPO_ROOT/devsetup.sh" --target "$TEST_TMP/project"
   run grep 'SELECTED_SERVICES="0 1"' "$TEST_TMP/project/.devcontainer/devsetup.conf"
   assert_success
 
   # Reconfigure keeping all – postgres prompt reappears because postgres stays
   # selected, so one extra empty line before timezone/docker/confirm.
-  printf '\n\n\n\n\n\n\n\n\ny\n' | \
+  printf '\n\n\n\n\n\n\n\ny\n' | \
     bash "$REPO_ROOT/devsetup.sh" --target "$TEST_TMP/project"
   run grep 'SELECTED_SERVICES="0 1"' "$TEST_TMP/project/.devcontainer/devsetup.conf"
   assert_success

@@ -10,7 +10,7 @@ setup_file() {
   DIND_DIR="$(create_test_project "dind")"
   STDIN_TMPDIR="$(mktemp -d /tmp/devsetup-itest-stdin-XXXXXX)"
   export STDIN_TMPDIR
-  generate_stdin --git-mode=1 --base-image=1 --docker-mode=2 > "$STDIN_TMPDIR/dind.txt"
+  generate_stdin --base-image=1 --docker-mode=2 > "$STDIN_TMPDIR/dind.txt"
   run_devsetup "$DIND_DIR" "$STDIN_TMPDIR/dind.txt"
 
   # Create override to neutralize host-specific volumes

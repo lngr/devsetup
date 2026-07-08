@@ -10,27 +10,27 @@ setup_file() {
   STDIN_TMPDIR="$(mktemp -d /tmp/devsetup-itest-stdin-XXXXXX)"
   export STDIN_TMPDIR
 
-  # Scenario 1: Minimal – Ubuntu, no services, readonly git, no Docker
+  # Szenario 1: Minimal, Ubuntu, keine Services, kein Docker
   MINIMAL_DIR="$(create_test_project "minimal")"
   local stdin_file="$STDIN_TMPDIR/minimal.txt"
-  generate_stdin --git-mode=1 --base-image=1 --docker-mode=1 > "$stdin_file"
+  generate_stdin --base-image=1 --docker-mode=1 > "$stdin_file"
   run_devsetup "$MINIMAL_DIR" "$stdin_file"
   export MINIMAL_DIR
 
-  # Scenario 2: All-Services – Ubuntu, all 6 services, readonly git
+  # Szenario 2: Alle Services, Ubuntu, alle 6 Services
   ALLSVC_DIR="$(create_test_project "allsvc")"
   stdin_file="$STDIN_TMPDIR/allsvc.txt"
   # Dir will be non-empty because of .keep file
-  generate_stdin --git-mode=1 --base-image=1 --services="1,2,3,4,5,6" \
+  generate_stdin --base-image=1 --services="1,2,3,4,5,6" \
     --postgres-dbs="appdb,testdb" --docker-mode=1 --dir-not-empty > "$stdin_file"
   touch "$ALLSVC_DIR/.keep"
   run_devsetup "$ALLSVC_DIR" "$stdin_file"
   export ALLSVC_DIR
 
-  # Scenario 3: Writable-Git – Go, no services, writable git, DinD privileged
+  # Szenario 3: Go, keine Services, DinD privileged, Nur-Projekt-Mount (Scope per-worktree)
   WRITABLE_DIR="$(create_test_project "writable")"
   stdin_file="$STDIN_TMPDIR/writable.txt"
-  generate_stdin --git-mode=2 --base-image=6 --docker-mode=2 > "$stdin_file"
+  generate_stdin --base-image=6 --docker-mode=2 > "$stdin_file"
   run_devsetup "$WRITABLE_DIR" "$stdin_file"
   export WRITABLE_DIR
 }
@@ -96,7 +96,9 @@ teardown_file() {
   [ -f "$conf" ]
   run grep "^PROJECT_NAME=" "$conf"
   assert_success
-  run grep '^GIT_MODE="readonly"' "$conf"
+  run grep '^CONTAINER_SCOPE=' "$conf"
+  assert_success
+  run grep '^WORKSPACE_MOUNT=' "$conf"
   assert_success
   run grep "^BASE_IMAGE=" "$conf"
   assert_success
@@ -108,11 +110,6 @@ teardown_file() {
 
 @test "minimal: no docker-compose.services.yml when no services" {
   [ ! -f "$MINIMAL_DIR/.devcontainer/docker-compose.services.yml" ]
-}
-
-@test "minimal: readonly git has .git:ro in compose" {
-  run grep ":ro" "$MINIMAL_DIR/.devcontainer/docker-compose.yml"
-  assert_success
 }
 
 @test "minimal: .gitignore ignoriert .devcontainer/.env" {
@@ -181,20 +178,20 @@ teardown_file() {
   assert_success
 }
 
-# ── Writable-Git scenario ──
+# ── Writable scenario (Nur-Projekt-Mount) ──
 
 @test "writable: no :ro for .git in compose" {
   run grep ".git:ro" "$WRITABLE_DIR/.devcontainer/docker-compose.yml"
   assert_failure
 }
 
-@test "writable: compose has git mounted rw comment" {
-  run grep "git mounted rw" "$WRITABLE_DIR/.devcontainer/docker-compose.yml"
+@test "project mount: compose marks .git as part of workspace" {
+  run grep "Workspace-Mounts" "$WRITABLE_DIR/.devcontainer/docker-compose.yml"
   assert_success
 }
 
-@test "writable: devsetup.conf has writable GIT_MODE" {
-  run grep '^GIT_MODE="writable"' "$WRITABLE_DIR/.devcontainer/devsetup.conf"
+@test "project mount: devsetup.conf has per-worktree scope" {
+  run grep '^CONTAINER_SCOPE="per-worktree"' "$WRITABLE_DIR/.devcontainer/devsetup.conf"
   assert_success
 }
 
