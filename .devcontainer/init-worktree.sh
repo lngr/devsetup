@@ -13,8 +13,18 @@ WORKTREE_NAME="$(basename "$PROJECT_DIR")"
 # Sanitize: lowercase, only alphanum + hyphens
 SANITIZED_NAME="$(echo "$WORKTREE_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g; s/--*/-/g; s/^-//; s/-$//')"
 
-# Build unique compose project name
-COMPOSE_PROJECT_NAME="devcontainer-devsetup-${SANITIZED_NAME}"
+WORKSPACE_MOUNT="${WORKSPACE_MOUNT:-project}"
+CONTAINER_SCOPE="${CONTAINER_SCOPE:-per-worktree}"
+
+if [ "$WORKSPACE_MOUNT" = "project" ]; then
+  CONTAINER_SCOPE="per-worktree"
+fi
+
+if [ "$CONTAINER_SCOPE" = "shared" ] || [ "$SANITIZED_NAME" = "devsetup" ]; then
+  COMPOSE_PROJECT_NAME="devcontainer-devsetup"
+else
+  COMPOSE_PROJECT_NAME="devcontainer-devsetup-${SANITIZED_NAME}"
+fi
 
 # Detect X11 socket and Xauthority paths
 if [[ "${OSTYPE:-}" == linux-gnu* ]]; then
