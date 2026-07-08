@@ -59,8 +59,8 @@ teardown_file() {
 
 # ── Tool availability ──
 
-@test "ubuntu: image has tmux, socat, curl, jq, git" {
-  for tool in tmux socat curl jq git; do
+@test "ubuntu: image has socat, curl, jq, git" {
+  for tool in socat curl jq git; do
     run docker run --rm "$UBUNTU_TAG" which "$tool"
     assert_success
   done

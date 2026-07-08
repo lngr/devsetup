@@ -76,7 +76,6 @@ fi
 # Defaults
 : "${WORKSPACE_MOUNT:=project}"
 : "${INSTALL_AGENTS:=true}"
-: "${SYNC_TMUX:=true}"
 : "${CLAUDE_CONFIG_MODE:=none}"
 : "${X11_FORWARDING:=auto}"
 : "${CLAUDE_FLAGS:=--dangerously-skip-permissions}"
@@ -454,18 +453,6 @@ if [ "$ENABLE_X11" = true ]; then
   else
     devcontainer exec --workspace-folder . "${REMOTE_ENV_ARGS[@]}" sudo ln -sfn /X11-unix /tmp/.X11-unix || true
   fi
-fi
-
-# --- Sync tmux.conf ---
-if [ "$SYNC_TMUX" = true ] && [ -f "$HOME/.tmux.conf" ]; then
-  echo "Syncing ~/.tmux.conf to container..."
-  copy_to_container "$HOME/.tmux.conf" "$HOME/.tmux.conf"
-  exec_in_container bash -c '
-    if command -v tmux &> /dev/null && tmux list-sessions &> /dev/null; then
-      echo "Reloading tmux config in running sessions..."
-      tmux source-file "$HOME/.tmux.conf" 2>/dev/null || true
-    fi
-  ' || true
 fi
 
 # ============================================================

@@ -75,7 +75,6 @@ The script:
 - Runs `init-worktree.sh` (sets `COMPOSE_PROJECT_NAME` and records the host identity)
 - Configures X11 forwarding (native on Linux, TCP fallback for IntelliJ)
 - Starts the container via `devcontainer up`
-- Syncs `~/.tmux.conf` into the container
 - Opens a shell as your host user (same name, UID and home path as on the host)
 
 Alternatively with VS Code:

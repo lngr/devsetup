@@ -384,7 +384,7 @@ fi
   echo "RUN apt-get update && \\"
   echo "    export DEBIAN_FRONTEND=noninteractive && \\"
   printf '    apt-get install -y \\\n'
-  for pkg in tmux screen socat telnet netcat-openbsd xauth xclip xsel xdg-utils tzdata curl git jq $EXTRA_PACKAGES; do
+  for pkg in screen socat telnet netcat-openbsd xauth xclip xsel xdg-utils tzdata curl git jq $EXTRA_PACKAGES; do
     printf '        %s \\\n' "$pkg"
   done
   echo "    && apt-get clean \\"

@@ -39,7 +39,6 @@ run_overlay_generation() {
 
   cat > "$personal_conf" <<EOF
 INSTALL_AGENTS=$agents
-SYNC_TMUX=false
 SYNC_CLAUDE_CONFIG=false
 X11_FORWARDING=$x11
 CLAUDE_FLAGS=--test-flag
@@ -55,7 +54,6 @@ EOF
     source "$PERSONAL_CONF"
 
     : "${INSTALL_AGENTS:=true}"
-    : "${SYNC_TMUX:=true}"
     : "${SYNC_CLAUDE_CONFIG:=true}"
     : "${X11_FORWARDING:=auto}"
     : "${CLAUDE_FLAGS:=--dangerously-skip-permissions --ide --chrome}"

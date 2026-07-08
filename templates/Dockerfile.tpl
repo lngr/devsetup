@@ -4,7 +4,6 @@ FROM {{BASE_IMAGE}}
 RUN apt-get update && \
     export DEBIAN_FRONTEND=noninteractive && \
     apt-get install -y \
-        tmux \
         screen \
         socat \
         telnet \
