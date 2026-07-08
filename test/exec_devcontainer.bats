@@ -176,6 +176,15 @@ UPDATE
   assert_output --partial "unknown option"
 }
 
+# --- Container-Scope-Overrides ---
+
+@test "exec-devcontainer: --shared bricht bei project-Mount ab" {
+  cd "$TEST_TMP/project"
+  run bash "$REPO_ROOT/exec-devcontainer.sh" --shared true
+  assert_failure
+  assert_output --partial "WORKSPACE_MOUNT=parent"
+}
+
 # --- Config reading ---
 
 @test "exec-devcontainer: fails without devsetup.conf" {

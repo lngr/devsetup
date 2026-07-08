@@ -24,6 +24,11 @@ Options:
   -r, --rebuild   Stop and remove the dev container and its locally built image,
                   then rebuild from scratch on start. Service containers and
                   named data volumes are kept. Asks for confirmation first.
+      --isolated      Diesen Start in einem eigenen Container je Worktree
+                      ausführen (nur bei WORKSPACE_MOUNT=parent). Alias:
+                      --own-container.
+      --shared        Diesen Start im geteilten Projekt-Container ausführen
+                      (nur bei WORKSPACE_MOUNT=parent).
   -h, --help      Show this help and exit.
 
 Without a COMMAND an interactive bash shell is opened. Any COMMAND after the
@@ -32,10 +37,13 @@ HELP
 }
 
 DO_REBUILD=false
+SCOPE_OVERRIDE=""
 while [ $# -gt 0 ]; do
   case "$1" in
     -h|--help) print_help; exit 0 ;;
     -r|--rebuild) DO_REBUILD=true; shift ;;
+    --isolated|--own-container) SCOPE_OVERRIDE="per-worktree"; shift ;;
+    --shared) SCOPE_OVERRIDE="shared"; shift ;;
     --) shift; break ;;
     -*) echo "ERROR: unknown option '$1'" >&2; print_help >&2; exit 1 ;;
     *) break ;;
@@ -81,6 +89,14 @@ fi
 : "${CLAUDE_FLAGS:=--dangerously-skip-permissions}"
 : "${CODEX_FLAGS:=--dangerously-bypass-approvals-and-sandbox}"
 : "${SERVICE_NAME:=dev}"
+
+# Scope-Flags sind nur bei parent-Mount sinnvoll; bei project ist jeder Worktree
+# ohnehin an seinen eigenen Container gebunden.
+if [ -n "$SCOPE_OVERRIDE" ] && [ "$WORKSPACE_MOUNT" != "parent" ]; then
+  echo "ERROR: Scope-Flags erfordern WORKSPACE_MOUNT=parent (aktuell '$WORKSPACE_MOUNT')." >&2
+  echo "       Bei project-Mount hat jeder Worktree immer einen eigenen Container." >&2
+  exit 1
+fi
 
 case "$CLAUDE_CONFIG_MODE" in
   share|none) ;;
@@ -307,7 +323,11 @@ fi
 # ============================================================
 
 echo "Initializing worktree configuration..."
-bash .devcontainer/init-worktree.sh
+if [ -n "$SCOPE_OVERRIDE" ]; then
+  CONTAINER_SCOPE="$SCOPE_OVERRIDE" bash .devcontainer/init-worktree.sh
+else
+  bash .devcontainer/init-worktree.sh
+fi
 
 # ============================================================
 # 4. Setup X11 forwarding
