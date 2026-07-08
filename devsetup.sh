@@ -638,6 +638,7 @@ OVERLAY_ENTRIES=(
   "exec-devcontainer.sh"
   ".devcontainer/docker-compose.local.yml"
   ".devcontainer/docker-compose.workspace.yml"
+  ".devcontainer/.env"
   ".devcontainer/postCreateCommand.local.sh"
   ".devcontainer/postStartCommand.local.sh"
   ".devcontainer/scripts/"

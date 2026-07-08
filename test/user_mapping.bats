@@ -121,3 +121,15 @@ teardown() {
   run grep -q 'Map the host home path' "$REPO_ROOT/exec-devcontainer.sh"
   assert_failure
 }
+
+# --- .gitignore für .env ---
+
+@test "devsetup.sh nimmt .devcontainer/.env in die Overlay-Gitignore-Liste auf" {
+  run grep -q '"\.devcontainer/\.env"' "$REPO_ROOT/devsetup.sh"
+  assert_success
+}
+
+@test "Repo-.gitignore ignoriert .devcontainer/.env" {
+  run grep -qx '.devcontainer/.env' "$REPO_ROOT/.gitignore"
+  assert_success
+}

@@ -115,6 +115,11 @@ teardown_file() {
   assert_success
 }
 
+@test "minimal: .gitignore ignoriert .devcontainer/.env" {
+  run grep -qx '.devcontainer/.env' "$MINIMAL_DIR/.gitignore"
+  assert_success
+}
+
 # ── All-Services scenario ──
 
 @test "allsvc: docker-compose.services.yml exists" {
