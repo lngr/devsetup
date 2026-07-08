@@ -36,6 +36,17 @@ X11_SOCKET_DIR=${X11_SOCKET_DIR}
 XAUTHORITY_PATH=${XAUTHORITY_PATH}
 EOF
 
+# Host-Identität festhalten, damit der Container-User dem Host-User entspricht.
+for _host_var in HOST_USER HOST_UID HOST_GID HOST_HOME; do
+  sed -i "/^${_host_var}=/d" "$ENV_FILE" 2>/dev/null || true
+done
+{
+  echo "HOST_USER=$(id -un)"
+  echo "HOST_UID=$(id -u)"
+  echo "HOST_GID=$(id -g)"
+  echo "HOST_HOME=$HOME"
+} >> "$ENV_FILE"
+
 echo "Devcontainer initialized: COMPOSE_PROJECT_NAME=${COMPOSE_PROJECT_NAME}"
 
 # Ensure docker-compose.local.yml stub exists for personal overlays
