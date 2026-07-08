@@ -5,19 +5,24 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        HOST_USER: ${HOST_USER:-vscode}
+        HOST_UID: ${HOST_UID:-1000}
+        HOST_GID: ${HOST_GID:-1000}
+        HOST_HOME: ${HOST_HOME:-/home/vscode}
     init: true
     privileged: true
     volumes:
       - ..:/workspaces/devsetup
       # .git mounted rw via parent volume
-      - ~/.gitconfig:/home/vscode/.gitconfig:cached
+      - ~/.gitconfig:${HOST_HOME:-/home/vscode}/.gitconfig:cached
       - type: bind
         source: ${X11_SOCKET_DIR:-/tmp}
         target: /tmp/.X11-unix
         read_only: false
       - type: bind
         source: ${XAUTHORITY_PATH:-/dev/null}
-        target: /home/vscode/.Xauthority
+        target: ${HOST_HOME:-/home/vscode}/.Xauthority
         read_only: true
     command: sleep infinity
     env_file:
@@ -27,7 +32,7 @@ services:
         required: false
     environment:
       - DISPLAY=${DISPLAY}
-      - XAUTHORITY=/home/vscode/.Xauthority
+      - XAUTHORITY=${HOST_HOME:-/home/vscode}/.Xauthority
       - QT_X11_NO_MITSHM=1
     extra_hosts:
       - "host.docker.internal:host-gateway"

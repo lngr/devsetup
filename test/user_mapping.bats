@@ -64,3 +64,27 @@ teardown() {
   run grep -q 'usermod -l' "$REPO_ROOT/devsetup.sh"
   assert_success
 }
+
+# --- docker-compose: build.args und gitconfig-Ziel ---
+
+@test "compose-Template reicht HOST_* als build.args durch" {
+  local tpl="$REPO_ROOT/templates/docker-compose.yml.tpl"
+  run grep -q 'HOST_USER: ${HOST_USER:-vscode}' "$tpl"
+  assert_success
+  run grep -q 'HOST_UID: ${HOST_UID:-1000}' "$tpl"
+  assert_success
+  run grep -q 'HOST_GID: ${HOST_GID:-1000}' "$tpl"
+  assert_success
+  run grep -q 'HOST_HOME: ${HOST_HOME:-/home/vscode}' "$tpl"
+  assert_success
+}
+
+@test "compose-Template mountet gitconfig unter Host-Home" {
+  run grep -q '${HOST_HOME:-/home/vscode}/.gitconfig' "$REPO_ROOT/templates/docker-compose.yml.tpl"
+  assert_success
+}
+
+@test "compose-Template mountet gitconfig nicht mehr unter /home/vscode fix" {
+  run grep -q ':/home/vscode/.gitconfig' "$REPO_ROOT/templates/docker-compose.yml.tpl"
+  assert_failure
+}
