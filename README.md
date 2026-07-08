@@ -33,13 +33,14 @@ devsetup --target ~/my-project
 The tool guides you through an interactive prompt flow:
 
 1. **Project name** -- Default: directory name (sanitized for Docker Compose)
-2. **Git mode**
-   - *Read-only* -- `.git` is mounted as `:ro`, worktrees on the host, each worktree gets its own container stack
-   - *Writable* -- Full git access inside the container, one container for everything
-3. **Base image** -- Ubuntu Noble, Node.js 22, .NET 8/9, Python 3, Go, or Custom
-4. **Services** -- Multi-select from PostgreSQL+PgAdmin, Redis, RabbitMQ, MySQL+phpMyAdmin, MinIO, MongoDB
-5. **Timezone** -- Default: `Europe/Berlin`
-6. **Summary** -- Confirmation before generation
+2. **Workspace mount** -- Only this repo, or the parent directory so neighbouring repos and worktrees are visible
+3. **Container scope** -- Only asked at parent mount: one shared container for all worktrees, or a separate container per worktree
+4. **Claude config sharing** -- Bind-mount `~/.claude` live into the container
+5. **Base image** -- Ubuntu Noble, Node.js 22, .NET 8/9, Python 3, Go, or Custom
+6. **Services** -- Multi-select from PostgreSQL+PgAdmin, Redis, RabbitMQ, MySQL+phpMyAdmin, MinIO, MongoDB
+7. **Timezone** -- Default: `Europe/Berlin`
+8. **Docker-in-Docker** -- None, privileged, or Sysbox
+9. **Summary** -- Confirmation before generation
 
 ## Generated Files
 
@@ -117,31 +118,36 @@ are never changed implicitly.
 > `~/.claude` including `~/.claude/.credentials.json`. For containers running
 > untrusted code, disable sharing with `--disable-claude-share`.
 
-## Git Modes in Detail
+## Workspace Mount and Container Scope
 
-### Read-only (recommended for worktree workflows)
+Two independent settings decide how the workspace is mounted and how containers map to worktrees.
 
-```yaml
-volumes:
-  - ..:/workspaces/project
-  - ../.git:/workspaces/project/.git:ro
-```
+### Workspace mount
 
-- Agents can read `git log`, `git diff`, `git blame`
-- No commit/push from inside the container
-- Create worktrees on the host: `git worktree add ../feature-x`
-- Each worktree gets its own container stack with separate volumes
+Chosen during `devsetup` (`WORKSPACE_MOUNT` in `devsetup.conf`):
 
-### Writable
+- `project`: only this repository is mounted at `/workspaces/<name>`.
+- `parent`: the parent directory is mounted at `/workspaces`, so neighbouring repos and worktrees are visible in one mount.
 
-```yaml
-volumes:
-  - ..:/workspaces/project    # incl. .git rw
-```
+`.git` is part of the workspace mount and has full read-write access.
 
-- Full git access (commit, push, branch, worktree)
-- One container for the entire project
-- `.gitconfig` mounted from the host
+### Container scope
+
+`CONTAINER_SCOPE` decides whether worktrees share one container or each gets its own. It is only configurable at `parent` mount; `project` mount always uses a separate container per directory.
+
+- `shared`: one container for all worktrees and branches. `COMPOSE_PROJECT_NAME` is `devcontainer-<project>`.
+- `per-worktree`: each worktree directory gets its own container. `COMPOSE_PROJECT_NAME` is `devcontainer-<project>`, plus the directory name as a suffix when it differs from the project name.
+
+`init-worktree.sh` writes the resulting `COMPOSE_PROJECT_NAME` into `.devcontainer/.env` on every start.
+
+### Per-start override
+
+With `parent` mount the scope can be overridden for a single launch:
+
+- `exec-devcontainer --isolated` (alias `--own-container`): run this worktree in its own container.
+- `exec-devcontainer --shared`: run in the shared project container.
+
+Create worktrees on the host, e.g. `git worktree add ../feature-x`.
 
 ## Services
 

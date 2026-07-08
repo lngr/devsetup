@@ -30,7 +30,8 @@ teardown() {
 @test "generiertes init-worktree schreibt HOST_* Werte wirklich in .env" {
   mkdir -p "$TEST_TMP/proj/.devcontainer"
   render_template "$REPO_ROOT/templates/init-worktree.sh.tpl" \
-    "$TEST_TMP/proj/.devcontainer/init-worktree.sh" "PROJECT_NAME=demo"
+    "$TEST_TMP/proj/.devcontainer/init-worktree.sh" \
+    "PROJECT_NAME=demo" "WORKSPACE_MOUNT=project" "CONTAINER_SCOPE=per-worktree"
   chmod +x "$TEST_TMP/proj/.devcontainer/init-worktree.sh"
   ( cd "$TEST_TMP/proj" && bash .devcontainer/init-worktree.sh )
   local env_file="$TEST_TMP/proj/.devcontainer/.env"
