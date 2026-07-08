@@ -88,3 +88,15 @@ teardown() {
   run grep -q ':/home/vscode/.gitconfig' "$REPO_ROOT/templates/docker-compose.yml.tpl"
   assert_failure
 }
+
+# --- devcontainer.json: remoteUser ---
+
+@test "devcontainer-Template setzt remoteUser auf localEnv USER" {
+  run grep -q '"remoteUser": "${localEnv:USER}"' "$REPO_ROOT/templates/devcontainer.json.tpl"
+  assert_success
+}
+
+@test "devcontainer-Template hat kein fixes remoteUser vscode" {
+  run grep -q '"remoteUser": "vscode"' "$REPO_ROOT/templates/devcontainer.json.tpl"
+  assert_failure
+}
