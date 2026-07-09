@@ -9,8 +9,13 @@ die() {
 }
 
 if [ -f /etc/profile ]; then
+  # Profile snippets may expand unset variables (e.g. snapd's apps-bin-path.sh
+  # reads XDG_DATA_DIRS); suspend nounset while sourcing so set -u does not
+  # abort the shell.
   # shellcheck disable=SC1091
+  set +u
   . /etc/profile || true
+  set -u
 fi
 export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
 
